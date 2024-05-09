@@ -1,0 +1,8 @@
+meson
+ninja
+tomli
+attr
+attrs
+torchvision
+opencv-python
+pymilvus
