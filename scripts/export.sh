@@ -11,7 +11,7 @@
 #
 
 set -ex
-ROOT_DIR=$(readlink -f $(dirname $0)/..)
+ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/apps
 cargo build
 
@@ -30,4 +30,4 @@ cargo run --bin pravega_stream_exporter -- \
 --stream ${PRAVEGA_STREAM} \
 --begin-offset ${BEGIN_OFFSET} \
 --end-offset ${END_OFFSET} \
---file-path ${ROOT_DIR}/urv/test.h264
+--file-path /scripts/test.h264

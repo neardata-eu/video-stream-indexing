@@ -29,6 +29,8 @@ apt-get install -y --no-install-recommends \
     libgdk-pixbuf2.0-dev \
     libgtk-3-dev
 
-pip3 install ./dependencies.txt
+pip3 install -r ./requirements.txt
 apt-get clean
 rm -rf /var/lib/apt/lists/*
+git clone -b flexible-index https://github.com/pravega/gstreamer-pravega /gstreamer-pravega
+rustup component add rustfmt

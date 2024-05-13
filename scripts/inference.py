@@ -10,22 +10,70 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
+## General libraries
 import argparse
 import logging
 import os
 import sys
 import time
 import traceback
+import numpy as np
+import random
 
+## Gstreamer and Pravega libraries
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('GLib', '2.0')
 gi.require_version('GObject', '2.0')
 from gi.repository import GLib, GObject, Gst
-
 from gstreamer import utils
 
-from PIL import Image
+## ML libraries
+import torchvision
+from torchvision import transforms
+from torch import nn
+import cv2
+
+## Milvus
+from pymilvus import (
+    connections,
+    utility,
+    FieldSchema, CollectionSchema, DataType,
+    Collection,
+)
+
+class FeatureResNet(nn.Module):
+    """ResNet model for feature extraction."""
+    def __init__(self, num_features = 4096):
+        super(FeatureResNet, self).__init__()
+        self.resnet = torchvision.models.resnet50(weights="IMAGENET1K_V1")
+
+    def forward(self, x):
+        x = self.resnet.conv1(x)
+        x = self.resnet.bn1(x)
+        x = self.resnet.relu(x)
+        x = self.resnet.maxpool(x)
+
+        x = self.resnet.layer1(x)
+        x = self.resnet.layer2(x)
+        x = self.resnet.layer3(x)
+        x = self.resnet.layer4(x)
+
+        x = self.resnet.avgpool(x)
+        x = x.view(x.size(0), -1)
+
+        return x
+    
+def inference(model, image):
+    """Extract features from an image"""
+    image = cv2.resize(np.array(image), (384, 216))
+    preprocess = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+    input_batch = preprocess(image).unsqueeze(0)
+    embedding = model(input_batch)
+    return embedding
 
 
 def bus_call(bus, message, loop):
@@ -43,7 +91,7 @@ def bus_call(bus, message, loop):
     return True
 
 
-def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER):
+def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER, model=None, milvus=None):
     logging.info("add_probe: Adding probe to %s pad of %s" % (pad_name, element_name))
     element = pipeline.get_by_name(element_name)
     if not element:
@@ -51,7 +99,7 @@ def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.
     sinkpad = element.get_static_pad(pad_name)
     if not sinkpad:
         raise Exception("Unable to get %s pad of %s" % (pad_name, element_name))
-    sinkpad.add_probe(probe_type, callback, 0)
+    sinkpad.add_probe(probe_type, callback, {"model": model, "milvus": milvus})
 
 
 def format_clock_time(ns):
@@ -83,9 +131,29 @@ def set_event_message_meta_probe(pad, info, u_data):
             # To do inference here
             caps = pad.get_current_caps()
             image_array = utils.gst_buffer_with_caps_to_ndarray(gst_buffer, caps)
-            image = Image.fromarray(image_array)
-            image.save('image.jpg')
+            embeds = inference(u_data["model"], image_array)
+            milvus = u_data["milvus"]
+            insert_data = [embeds, [str(meta.timestamp)]]
+            insert_result = milvus.insert(insert_data)
     return Gst.PadProbeReturn.OK
+
+
+def init_milvus():
+    # Connect to Milvus
+    connections.connect("default", host='localhost', port='19530')
+    if not utility.has_collection("surgical_embeddings"):
+        fields = [
+            FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=True, max_length=100),
+            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=2048),
+            FieldSchema(name="offset", dtype=DataType.VARCHAR, max_length=100),
+        ]
+
+        schema = CollectionSchema(fields, "This is a demo schema")
+        collection = Collection("surgical_embeddings", schema, consistency_level="Strong")
+    else:
+        collection = Collection("surgical_embeddings")
+    return collection
+
 
 def main():
     parser = argparse.ArgumentParser(description='Pravega inferene job')
@@ -122,10 +190,16 @@ def main():
     pravegasrc.set_property("start-mode", 'earliest')
     pravegasrc.set_property("end-mode", 'latest')
     pravegasrc.set_property("allow-create-scope", True)
+    
+    # Initialize the model
+    model = FeatureResNet()
+    model.eval()
+    
+    milvus_coollection = init_milvus()
 
     sink = pipeline.get_by_name("sink")
     if sink:
-        add_probe(pipeline, "sink", set_event_message_meta_probe, pad_name='sink')
+        add_probe(pipeline, "sink", set_event_message_meta_probe, pad_name='sink', model=model, milvus=milvus_coollection)
 
     # Create an event loop and feed GStreamer bus messages to it.
     loop = GLib.MainLoop()
@@ -143,6 +217,8 @@ def main():
         # Cleanup GStreamer elements.
         pipeline.set_state(Gst.State.NULL)
         raise
+
+    milvus_coollection.flush()
 
     pipeline.set_state(Gst.State.NULL)
     logging.info('END')

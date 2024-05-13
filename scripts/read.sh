@@ -11,7 +11,7 @@
 #
 
 set -ex
-ROOT_DIR=$(readlink -f $(dirname $0)/..)
+ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
 ls -lh ${ROOT_DIR}/target/debug/*.so

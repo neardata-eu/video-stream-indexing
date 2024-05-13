@@ -3,33 +3,78 @@
 Please install docker & docker-compose as prerequisite and run the following commands on Linux host to start/stop pravega instance.
 Consider to set PRAVEGA_LTS_PATH env variable if to change the pravega tier 2 storage path.
 
+Start pravega:
 ```
 PRAVEGA_LTS_PATH=/opt/docker/pravega_lts ./pravega-docker/up.sh
+```
+
+Stop pravega:
+```
 ./pravega-docker/down.sh
 ```
 
-## Run scripts in the docker container
+## To start/stop Milvus
+
+Install Milvus
 ```
-# change `/mnt/data/projects/gstreamer-pravega/` accordingly to the location of this repository
+wget https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh
+```
+
+Start Milvus
+```
+bash standalone_embed.sh start
+```
+
+Stop Milvus
+```
+bash standalone_embed.sh stop
+```
+
+Delete Milvus
+```
+bash standalone_embed.sh delete
+```
+
+To start the ATTU GUI:
+```
+docker run -p 8000:3000 -e MILVUS_URL=172.17.0.1:19530 zilliz/attu:v2.3.10
+```
+
+## Run pipeline
+Setup docker container (change `/mnt/data/projects/gstreamer-pravega/` accordingly to the location of this repository):
+```
 xhost +
-docker run -it -v /mnt/data/projects/gstreamer-pravega/:/scripts --net=host --env="DISPLAY" --volume="$HOME/.Xauthority:/root/.Xauthority:rw" ghcr.io/streamstorage/gstreamer:22.04-1.22.6-0.11.1-dev bash
-cd /scripts
+docker run -it -v /mnt/data/projects/gstreamer-pravega/:/project --net=host --env="DISPLAY" --volume="$HOME/.Xauthority:/root/.Xauthority:rw" ghcr.io/streamstorage/gstreamer:22.04-1.22.6-0.11.1-dev bash
+cd /project
+```
 
-# install dependencies
-./install_dependencies
+Install dependencies:
+```
+bash install_dependencies
+```
 
-# test video source to pravega
-./ingestion.sh
+Ingest local video to pravega
+```
+cd /project/scripts
+bash ingestion.sh sample.mp4
+```
 
-# pravega to screen
-./read.sh
+Display pravega video to screen
+```
+bash read.sh
+```
 
-# python inference job
-GST_PLUGIN_PATH=../target/debug:${GST_PLUGIN_PATH} ./inference.py
+Perform inference
+```
+GST_PLUGIN_PATH=../target/debug:${GST_PLUGIN_PATH} python3 inference.py
+```
 
-# export video clips with offset
-BEGIN_OFFSET=6986522 END_OFFSET=7498906 ./export.sh
+Export video segment:
+```
+BEGIN_OFFSET=474795 END_OFFSET=1651706 bash export.sh
+```
 
-# play the exported test.h264 file with vlc
-# vlc test.h264 --demux h264
+Read video segment:
+```
+vlc test.h264 --demux h264
 ```
