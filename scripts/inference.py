@@ -138,10 +138,10 @@ def set_event_message_meta_probe(pad, info, u_data):
     return Gst.PadProbeReturn.OK
 
 
-def init_milvus():
+def init_milvus(collection_name):
     # Connect to Milvus
     connections.connect("default", host='localhost', port='19530')
-    if not utility.has_collection("surgical_embeddings"):
+    if not utility.has_collection(collection_name):
         fields = [
             FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=True, max_length=100),
             FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=2048),
@@ -149,9 +149,9 @@ def init_milvus():
         ]
 
         schema = CollectionSchema(fields, "This is a demo schema")
-        collection = Collection("surgical_embeddings", schema, consistency_level="Strong")
+        collection = Collection(collection_name, schema, consistency_level="Strong")
     else:
-        collection = Collection("surgical_embeddings")
+        collection = Collection(collection_name)
     return collection
 
 
@@ -195,7 +195,7 @@ def main():
     model = FeatureResNet()
     model.eval()
     
-    milvus_coollection = init_milvus()
+    milvus_coollection = init_milvus(args.stream)
 
     sink = pipeline.get_by_name("sink")
     if sink:

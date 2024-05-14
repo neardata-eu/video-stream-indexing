@@ -11,6 +11,13 @@
 #
 
 set -ex
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <pravega_stream>"
+    exit 1
+fi
+PRAVEGA_STREAM="$1"
+
 ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
@@ -21,7 +28,6 @@ export GST_DEBUG=pravegasrc:DEBUG,basesink:INFO
 export RUST_BACKTRACE=1
 export TZ=UTC
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-172.28.1.1:9090}
-PRAVEGA_STREAM=${PRAVEGA_STREAM:-urv6}
 FPS=30
 
 

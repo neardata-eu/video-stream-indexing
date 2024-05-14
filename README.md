@@ -56,22 +56,22 @@ bash install_dependencies
 Ingest local video to pravega
 ```
 cd /project/scripts
-bash ingestion.sh sample.mp4
+bash ingestion.sh /project/sample.mp4 urv6
 ```
 
 Display pravega video to screen
 ```
-bash read.sh
+bash read.sh urv6
 ```
 
 Perform inference
 ```
-GST_PLUGIN_PATH=../target/debug:${GST_PLUGIN_PATH} python3 inference.py
+GST_PLUGIN_PATH=/gstreamer-pravega/target/debug:${GST_PLUGIN_PATH} python3 inference.py --stream urv6
 ```
 
 Export video segment:
 ```
-BEGIN_OFFSET=474795 END_OFFSET=1651706 bash export.sh
+BEGIN_OFFSET=474795 END_OFFSET=1651706 bash export.sh urv6
 ```
 
 Read video segment:

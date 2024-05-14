@@ -13,10 +13,11 @@
 set -ex
 
 if [ $# -eq 0 ]; then
-    echo "Usage: $0 <filesrc_path>"
+    echo "Usage: $0 <video_path> <pravega_stream>"
     exit 1
 fi
 FILESRC_PATH="$1"
+PRAVEGA_STREAM="$2"
 
 ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/gst-plugin-pravega
@@ -28,7 +29,6 @@ export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
 export RUST_BACKTRACE=1
 export TZ=UTC
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-172.28.1.1:9090}
-PRAVEGA_STREAM=${PRAVEGA_STREAM:-urv6}
 SIZE_SEC=30
 FPS=30
 KEY_FRAME_INTERVAL=$((1*$FPS))
