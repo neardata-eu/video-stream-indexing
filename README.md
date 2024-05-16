@@ -50,28 +50,28 @@ cd /project
 
 Install dependencies:
 ```
-bash install_dependencies
+bash setup.sh
 ```
 
 Ingest local video to pravega
 ```
 cd /project/scripts
-bash ingestion.sh /project/sample.mp4 urv6
+bash ingestion.sh /project/videos/sample.mp4 <stream_name>
 ```
 
 Display pravega video to screen
 ```
-bash read.sh urv6
+bash read.sh <stream_name>
 ```
 
 Perform inference
 ```
-GST_PLUGIN_PATH=/gstreamer-pravega/target/debug:${GST_PLUGIN_PATH} python3 inference.py --stream urv6
+GST_PLUGIN_PATH=/gstreamer-pravega/target/debug:${GST_PLUGIN_PATH} python3 inference.py --stream <stream_name>
 ```
 
 Export video segment:
 ```
-BEGIN_OFFSET=474795 END_OFFSET=1651706 bash export.sh urv6
+BEGIN_OFFSET=474795 END_OFFSET=1651706 bash export.sh <stream_name>
 ```
 
 Read video segment:

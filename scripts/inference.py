@@ -21,15 +21,16 @@ import numpy as np
 import random
 
 ## Gstreamer and Pravega libraries
-import gi
+import gi # type: ignore
 gi.require_version('Gst', '1.0')
 gi.require_version('GLib', '2.0')
 gi.require_version('GObject', '2.0')
-from gi.repository import GLib, GObject, Gst
+from gi.repository import GLib, GObject, Gst # type: ignore
 from gstreamer import utils
 
 ## ML libraries
 import torchvision
+import torch
 from torchvision import transforms
 from torch import nn
 import cv2
@@ -110,6 +111,13 @@ def format_clock_time(ns):
     return "%u:%02u:%02u.%09u" % (h, m, s, ns)
 
 
+def normalize_tensor(tensor):
+    mean = tensor.mean(dim=-1, keepdim=True)
+    std = tensor.std(dim=-1, keepdim=True)
+    normalized_tensor = (tensor - mean) / (std + 1e-8)
+    return normalized_tensor
+
+
 def set_event_message_meta_probe(pad, info, u_data):
     gst_buffer = info.get_buffer()
     if gst_buffer:
@@ -132,6 +140,8 @@ def set_event_message_meta_probe(pad, info, u_data):
             caps = pad.get_current_caps()
             image_array = utils.gst_buffer_with_caps_to_ndarray(gst_buffer, caps)
             embeds = inference(u_data["model"], image_array)
+            embeds = normalize_tensor(embeds)
+            embeds = embeds.detach().numpy()
             milvus = u_data["milvus"]
             insert_data = [embeds, [str(meta.timestamp)]]
             insert_result = milvus.insert(insert_data)
@@ -178,7 +188,7 @@ def main():
         'pravegasrc name=src ! '
         'decodebin !'
         'videoconvert !'
-        'video/x-raw,format=RGB,width=960,height=540,framerate=15/1 ! '
+        'video/x-raw,format=RGB ! '
         'fakesink name=sink'
     )
     logging.info('Creating pipeline: ' +  pipeline_description)
@@ -193,6 +203,8 @@ def main():
     
     # Initialize the model
     model = FeatureResNet()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
     model.eval()
     
     milvus_coollection = init_milvus(args.stream)
