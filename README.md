@@ -44,18 +44,11 @@ docker run -p 8000:3000 -e MILVUS_URL=172.17.0.1:19530 zilliz/attu:v2.3.10
 Setup docker container (change `/mnt/data/projects/gstreamer-pravega/` accordingly to the location of this repository):
 ```
 xhost +
-docker run -it -v /mnt/data/projects/gstreamer-pravega/:/project --net=host --env="DISPLAY" --volume="$HOME/.Xauthority:/root/.Xauthority:rw" ghcr.io/streamstorage/gstreamer:22.04-1.22.6-0.11.1-dev bash
-cd /project
-```
-
-Install dependencies:
-```
-bash setup.sh
+docker run -it -v /mnt/data/projects/gstreamer-pravega/:/project --net=host --env="DISPLAY" --volume="$HOME/.Xauthority:/root/.Xauthority:rw" arnaugabriel/video-indexing:latest bash
 ```
 
 Ingest local video to pravega
 ```
-cd /project/scripts
 bash ingestion.sh /project/videos/sample.mp4 <stream_name>
 ```
 
@@ -76,5 +69,5 @@ BEGIN_OFFSET=474795 END_OFFSET=1651706 bash export.sh <stream_name>
 
 Read video segment:
 ```
-vlc test.h264 --demux h264
+vlc <stream_name>.h264 --demux h264
 ```
