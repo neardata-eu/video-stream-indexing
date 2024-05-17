@@ -20,7 +20,7 @@ PRAVEGA_STREAM="$1"
 
 ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/gst-plugin-pravega
-cargo build
+#cargo build
 ls -lh ${ROOT_DIR}/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 # log level can be INFO, DEBUG, or LOG (verbose)

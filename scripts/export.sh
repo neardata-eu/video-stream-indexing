@@ -20,7 +20,7 @@ PRAVEGA_STREAM="$1"
 
 ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/apps
-cargo build
+#cargo build
 
 #export RUST_LOG=${RUST_LOG:-info}
 export RUST_BACKTRACE=1
@@ -36,4 +36,4 @@ cargo run --bin pravega_stream_exporter -- \
 --stream ${PRAVEGA_STREAM} \
 --begin-offset ${BEGIN_OFFSET} \
 --end-offset ${END_OFFSET} \
---file-path /scripts/${PRAVEGA_STREAM}.h264
+--file-path /project/scripts/${PRAVEGA_STREAM}.h264
