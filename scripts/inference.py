@@ -111,13 +111,6 @@ def format_clock_time(ns):
     return "%u:%02u:%02u.%09u" % (h, m, s, ns)
 
 
-def normalize_tensor(tensor):
-    mean = tensor.mean(dim=-1, keepdim=True)
-    std = tensor.std(dim=-1, keepdim=True)
-    normalized_tensor = (tensor - mean) / (std + 1e-8)
-    return normalized_tensor
-
-
 def set_event_message_meta_probe(pad, info, u_data):
     gst_buffer = info.get_buffer()
     if gst_buffer:
@@ -140,7 +133,6 @@ def set_event_message_meta_probe(pad, info, u_data):
             caps = pad.get_current_caps()
             image_array = utils.gst_buffer_with_caps_to_ndarray(gst_buffer, caps)
             embeds = inference(u_data["model"], image_array)
-            embeds = normalize_tensor(embeds)
             embeds = embeds.detach().numpy()
             milvus = u_data["milvus"]
             insert_data = [embeds, [str(meta.timestamp)]]
