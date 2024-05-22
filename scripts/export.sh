@@ -17,6 +17,7 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 PRAVEGA_STREAM="$1"
+FILE_NAME="$2"
 
 ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/apps
@@ -36,4 +37,4 @@ cargo run --bin pravega_stream_exporter -- \
 --stream ${PRAVEGA_STREAM} \
 --begin-offset ${BEGIN_OFFSET} \
 --end-offset ${END_OFFSET} \
---file-path /project/scripts/${PRAVEGA_STREAM}.h264
+--file-path /project/results/${FILE_NAME}.h264
