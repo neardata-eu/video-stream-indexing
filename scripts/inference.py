@@ -100,7 +100,8 @@ def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.
     sinkpad = element.get_static_pad(pad_name)
     if not sinkpad:
         raise Exception("Unable to get %s pad of %s" % (pad_name, element_name))
-    sinkpad.add_probe(probe_type, callback, {"model": model, "milvus": milvus})
+    counter = 0
+    sinkpad.add_probe(probe_type, callback, {"model": model, "milvus": milvus, "counter": counter})
 
 
 def format_clock_time(ns):
@@ -135,8 +136,9 @@ def set_event_message_meta_probe(pad, info, u_data):
             embeds = inference(u_data["model"], image_array)
             embeds = embeds.detach().numpy()
             milvus = u_data["milvus"]
-            insert_data = [embeds, [str(meta.timestamp)]]
+            insert_data = [[u_data["counter"]], embeds, [str(meta.timestamp)]]
             insert_result = milvus.insert(insert_data)
+            u_data["counter"] += 1
     return Gst.PadProbeReturn.OK
 
 
@@ -145,13 +147,19 @@ def init_milvus(collection_name):
     connections.connect("default", host='localhost', port='19530')
     if not utility.has_collection(collection_name):
         fields = [
-            FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=True, max_length=100),
+            FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=False, max_length=100),
             FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=2048),
             FieldSchema(name="offset", dtype=DataType.VARCHAR, max_length=100),
         ]
 
         schema = CollectionSchema(fields, "This is a demo schema")
         collection = Collection(collection_name, schema, consistency_level="Strong")
+        
+        index = {
+            "index_type": "FLAT",
+            "metric_type": "COSINE"
+        }
+        collection.create_index("embeddings", index)
     else:
         collection = Collection(collection_name)
     return collection
