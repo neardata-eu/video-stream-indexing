@@ -82,24 +82,31 @@ def main():
     for collection_name in collection_list:
         collection = Collection(collection_name)
         collection.load()
-        result = collection.search(embeds.detach().numpy(), "embeddings", search_params, limit=2, output_fields=["offset", "pk"])
+        result = collection.search(embeds.detach().numpy(), "embeddings", search_params, limit=1, output_fields=["offset", "pk"])
         results[collection_name] = result
     
     ## Get Pravega video segment
     print("Getting video segments from Pravega")
     script_path = '/project/scripts/export.sh'
     env = os.environ.copy()
+    hit_num = 0
+    fail_num = 0
     for key in results.keys():
         initial_offset = 0
         for hits in results[key]:
             for hit in hits:
-                bounds = client.get(collection_name=key, ids=[int(hit.pk)-10, int(hit.pk)+10], output_fields=["offset"])
-                os.environ['BEGIN_OFFSET'] = bounds[0]["offset"]
-                os.environ['END_OFFSET'] = bounds[1]["offset"]
-                env = os.environ.copy()
-                subprocess.run(['bash', script_path, key, f"{key}_{hit.pk}"], env=env, check=True)
-    
-    return 0
+                if (hit.distance < 0.85):
+                    fail_num += 1
+                else:
+                    hit_num += 1
+                    print(f"Processing hit {hit.pk} with distance {hit.distance}")
+                    bounds = client.get(collection_name=key, ids=[int(hit.pk)-10, int(hit.pk)+10], output_fields=["offset"])
+                    os.environ['BEGIN_OFFSET'] = bounds[0]["offset"]
+                    os.environ['END_OFFSET'] = bounds[1]["offset"]
+                    env = os.environ.copy()
+                    subprocess.run(['bash', script_path, key, f"{key}_{hit.pk}"], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+    print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
 
     
 if __name__ == "__main__":
