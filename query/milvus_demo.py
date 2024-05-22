@@ -95,7 +95,7 @@ def main():
         initial_offset = 0
         for hits in results[key]:
             for hit in hits:
-                if (hit.distance < 0.85):
+                if (hit.distance < 0.9):
                     fail_num += 1
                 else:
                     hit_num += 1
