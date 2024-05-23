@@ -19,6 +19,7 @@ import time
 import traceback
 import numpy as np
 import random
+import json
 
 ## Gstreamer and Pravega libraries
 import gi # type: ignore
@@ -92,7 +93,7 @@ def bus_call(bus, message, loop):
     return True
 
 
-def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER, model=None, milvus=None):
+def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER, model=None, milvus=None, metrics=None):
     logging.info("add_probe: Adding probe to %s pad of %s" % (pad_name, element_name))
     element = pipeline.get_by_name(element_name)
     if not element:
@@ -101,7 +102,7 @@ def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.
     if not sinkpad:
         raise Exception("Unable to get %s pad of %s" % (pad_name, element_name))
     counter = 0
-    sinkpad.add_probe(probe_type, callback, {"model": model, "milvus": milvus, "counter": counter})
+    sinkpad.add_probe(probe_type, callback, {"model": model, "milvus": milvus, "counter": counter, "metrics": metrics})
 
 
 def format_clock_time(ns):
@@ -131,13 +132,18 @@ def set_event_message_meta_probe(pad, info, u_data):
                 gst_buffer.get_size()
             ))
             # To do inference here
+            metric = {}
             caps = pad.get_current_caps()
             image_array = utils.gst_buffer_with_caps_to_ndarray(gst_buffer, caps)
+            metric["start"] = time.time()
             embeds = inference(u_data["model"], image_array)
             embeds = embeds.detach().numpy()
+            metric["inference"] = time.time()
             milvus = u_data["milvus"]
             insert_data = [[u_data["counter"]], embeds, [str(meta.timestamp)]]
             insert_result = milvus.insert(insert_data)
+            metric["insert"] = time.time()
+            u_data["metrics"].append(metric)
             u_data["counter"] += 1
     return Gst.PadProbeReturn.OK
 
@@ -208,10 +214,11 @@ def main():
     model.eval()
     
     milvus_coollection = init_milvus(args.stream)
+    metrics = []
 
     sink = pipeline.get_by_name("sink")
     if sink:
-        add_probe(pipeline, "sink", set_event_message_meta_probe, pad_name='sink', model=model, milvus=milvus_coollection)
+        add_probe(pipeline, "sink", set_event_message_meta_probe, pad_name='sink', model=model, milvus=milvus_coollection, metrics=metrics)
 
     # Create an event loop and feed GStreamer bus messages to it.
     loop = GLib.MainLoop()
@@ -231,6 +238,9 @@ def main():
         raise
 
     milvus_coollection.flush()
+    
+    with open('/project/results/inference_metrics.json', 'w') as f:
+        json.dump(metrics, f)
 
     pipeline.set_state(Gst.State.NULL)
     logging.info('END')

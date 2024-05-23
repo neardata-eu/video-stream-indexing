@@ -17,6 +17,8 @@ import cv2
 
 import os
 import subprocess
+import time
+import json
 
 
 def inference(model, image):
@@ -54,7 +56,7 @@ class FeatureResNet(nn.Module):
         return x
 
 
-def main():
+def main():   
     ## Connect to Milvus
     print("Connecting to Milvus")
     connections.connect("default", host="localhost", port="19530")
@@ -74,39 +76,43 @@ def main():
 
     ## Perform search
     print("Performing search")
-    search_params = {
-        "metric_type": "COSINE"
-    }
-    results = {}
-    collection_list = utility.list_collections()
-    for collection_name in collection_list:
-        collection = Collection(collection_name)
-        collection.load()
-        result = collection.search(embeds.detach().numpy(), "embeddings", search_params, limit=1, output_fields=["offset", "pk"])
-        results[collection_name] = result
-    
-    ## Get Pravega video segment
-    print("Getting video segments from Pravega")
-    script_path = '/project/scripts/export.sh'
-    env = os.environ.copy()
     hit_num = 0
     fail_num = 0
-    for key in results.keys():
-        initial_offset = 0
-        for hits in results[key]:
+    search_params = {"metric_type": "COSINE"}
+    script_path = '/project/scripts/export.sh'
+    metrics = []
+    
+    collection_list = utility.list_collections()
+    for collection_name in collection_list:
+        metric = {}
+        metric["start"] = time.time()
+        collection = Collection(collection_name)
+        collection.load()
+        
+        result = collection.search(embeds.detach().numpy(), "embeddings", search_params, limit=1, output_fields=["offset", "pk"])
+        metric["query"] = time.time()
+        
+        for hits in result:
             for hit in hits:
                 if (hit.distance < 0.9):
                     fail_num += 1
                 else:
-                    hit_num += 1
                     print(f"Processing hit {hit.pk} with distance {hit.distance}")
-                    bounds = client.get(collection_name=key, ids=[int(hit.pk)-10, int(hit.pk)+10], output_fields=["offset"])
+                    bounds = client.get(collection_name=collection_name, ids=[int(hit.pk)-20, int(hit.pk)+20], output_fields=["offset"])
+                    
                     os.environ['BEGIN_OFFSET'] = bounds[0]["offset"]
                     os.environ['END_OFFSET'] = bounds[1]["offset"]
                     env = os.environ.copy()
-                    subprocess.run(['bash', script_path, key, f"{key}_{hit.pk}"], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     
+                    subprocess.run(['bash', script_path, collection_name, f"{collection_name}_{hit.pk}"], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    hit_num += 1
+                    metric["pravega_retrieve"] = time.time()
+        metrics.append(metric)
+                        
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
+    
+    with open("/project/results/query_metrics.json", "w") as f:
+        json.dump(metrics, f)
 
     
 if __name__ == "__main__":
