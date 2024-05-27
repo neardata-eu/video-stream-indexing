@@ -18,8 +18,8 @@ def calculate_average_and_stddev(file_path):
         inference = entry["inference"]
         insert = entry["insert"]
         
-        inference_time = inference - start
-        insert_time = insert - inference
+        inference_time = (inference - start) * 1000
+        insert_time = (insert - inference) * 1000
         
         inference_times.append(inference_time)
         insert_times.append(insert_time)
@@ -37,10 +37,10 @@ def calculate_average_and_stddev(file_path):
     stddev_inference_time = math.sqrt(inference_variance)
     stddev_insert_time = math.sqrt(insert_variance)
     
-    print(f"Average Inference Time: {average_inference_time}")
-    print(f"Standard Deviation of Inference Time: {stddev_inference_time}")
-    print(f"Average Insert Time: {average_insert_time}")
-    print(f"Standard Deviation of Insert Time: {stddev_insert_time}")
+    print(f"Average Inference Time: {average_inference_time} ms")
+    print(f"Standard Deviation of Inference Time: {stddev_inference_time} ms")
+    print(f"Average Insert Time: {average_insert_time} ms")
+    print(f"Standard Deviation of Insert Time: {stddev_insert_time} ms")
 
     # Generate plot
     labels = ['Inference Time', 'Insert Time']
@@ -53,8 +53,8 @@ def calculate_average_and_stddev(file_path):
     ax.bar(x, averages, yerr=std_devs, capsize=10, alpha=0.7, color=['blue', 'green'])
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
-    ax.set_ylabel('Time (seconds)')
-    ax.set_title('Average Inference and Insert Times with Standard Deviation')
+    ax.set_ylabel('Time (milliseconds)')
+    ax.set_title('Frame Ingestion')
 
     plt.savefig('results/inference_analysis.png')
 

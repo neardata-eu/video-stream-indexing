@@ -20,13 +20,13 @@ def calculate_average_and_stddev(file_path):
         pravega_retrieve = entry.get("pravega_retrieve")
         
         if start is not None and query is not None:
-            query_time = query - start
+            query_time = (query - start) * 1000
             query_times.append(query_time)
             total_query_time += query_time
             count_query += 1
         
         if query is not None and pravega_retrieve is not None:
-            pravega_retrieve_time = pravega_retrieve - query
+            pravega_retrieve_time = (pravega_retrieve - query) * 1000
             pravega_retrieve_times.append(pravega_retrieve_time)
             total_pravega_retrieve_time += pravega_retrieve_time
             count_pravega_retrieve += 1
@@ -41,13 +41,13 @@ def calculate_average_and_stddev(file_path):
     stddev_query_time = math.sqrt(query_variance)
     stddev_pravega_retrieve_time = math.sqrt(pravega_retrieve_variance)
     
-    print(f"Average query Time: {average_query_time}")
-    print(f"Standard Deviation of Query Time: {stddev_query_time}")
-    print(f"Average pravega_retrieve Time: {average_pravega_retrieve_time}")
-    print(f"Standard Deviation of Pravega Segment Retrieval Time: {stddev_pravega_retrieve_time}")
+    print(f"Average query Time: {average_query_time} ms")
+    print(f"Standard Deviation of Query Time: {stddev_query_time} ms")
+    print(f"Average pravega_retrieve Time: {average_pravega_retrieve_time} ms")
+    print(f"Standard Deviation of Pravega Segment Retrieval Time: {stddev_pravega_retrieve_time} ms")
 
     # Generate plot
-    labels = ['Query Time', 'Pravega Segment Retrieval Time']
+    labels = ['Milvus Query Time', 'Pravega Segment Retrieval Time']
     averages = [average_query_time, average_pravega_retrieve_time]
     std_devs = [stddev_query_time, stddev_pravega_retrieve_time]
     
@@ -57,8 +57,8 @@ def calculate_average_and_stddev(file_path):
     ax.bar(x, averages, yerr=std_devs, capsize=10, alpha=0.7, color=['blue', 'green'])
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
-    ax.set_ylabel('Time (seconds)')
-    ax.set_title('Average Query and Pravega Segment Retrieval Times')
+    ax.set_ylabel('Time (milliseconds)')
+    ax.set_title('Query Petitions')
 
     plt.savefig('results/query_analysis.png')
 

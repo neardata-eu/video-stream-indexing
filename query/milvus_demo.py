@@ -54,7 +54,7 @@ class FeatureResNet(nn.Module):
         x = x.view(x.size(0), -1)
 
         return x
-
+    
 
 def main():   
     ## Connect to Milvus
@@ -78,6 +78,7 @@ def main():
     print("Performing search")
     hit_num = 0
     fail_num = 0
+    gb_retrieved = 0
     search_params = {"metric_type": "COSINE"}
     script_path = '/project/scripts/export.sh'
     metrics = []
@@ -90,7 +91,6 @@ def main():
         collection.load()
         
         result = collection.search(embeds.detach().numpy(), "embeddings", search_params, limit=1, output_fields=["offset", "pk"])
-        metric["query"] = time.time()
         
         for hits in result:
             for hit in hits:
@@ -99,6 +99,7 @@ def main():
                 else:
                     print(f"Processing hit {hit.pk} with distance {hit.distance}")
                     bounds = client.get(collection_name=collection_name, ids=[int(hit.pk)-20, int(hit.pk)+20], output_fields=["offset"])
+                    metric["query"] = time.time()
                     
                     os.environ['BEGIN_OFFSET'] = bounds[0]["offset"]
                     os.environ['END_OFFSET'] = bounds[1]["offset"]
@@ -107,6 +108,8 @@ def main():
                     subprocess.run(['bash', script_path, collection_name, f"{collection_name}_{hit.pk}"], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     hit_num += 1
                     metric["pravega_retrieve"] = time.time()
+                    
+                    gb_retrieved += os.path.getsize(f"/project/results/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
         metrics.append(metric)
                         
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
