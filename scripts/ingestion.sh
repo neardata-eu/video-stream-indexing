@@ -35,9 +35,7 @@ KEY_FRAME_INTERVAL=$((1*$FPS))
 gst-launch-1.0 \
 -v \
 filesrc location="${FILESRC_PATH}" \
-! qtdemux \
-! h264parse \
-! avdec_h264 \
+! decodebin \
 ! videoconvert \
 ! queue \
 ! x264enc tune=zerolatency key-int-max=${KEY_FRAME_INTERVAL} \

@@ -153,3 +153,4 @@ cython_debug/
 videos/*
 !videos/sample.mp4
 results/
+old/

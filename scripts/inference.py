@@ -13,12 +13,9 @@
 ## General libraries
 import argparse
 import logging
-import os
-import sys
 import time
 import traceback
 import numpy as np
-import random
 import json
 
 ## Gstreamer and Pravega libraries
@@ -66,7 +63,7 @@ class FeatureResNet(nn.Module):
 
         return x
     
-def inference(model, image):
+def inference(model, image, device):
     """Extract features from an image"""
     image = cv2.resize(np.array(image), (384, 216))
     preprocess = transforms.Compose([
@@ -74,8 +71,8 @@ def inference(model, image):
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
     input_batch = preprocess(image).unsqueeze(0)
-    embedding = model(input_batch)
-    return embedding
+    embedding = model(input_batch.to(device))
+    return embedding.cpu()
 
 
 def bus_call(bus, message, loop):
@@ -93,7 +90,7 @@ def bus_call(bus, message, loop):
     return True
 
 
-def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER, model=None, milvus=None, metrics=None):
+def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER, model=None, milvus=None, metrics=None, device=None):
     logging.info("add_probe: Adding probe to %s pad of %s" % (pad_name, element_name))
     element = pipeline.get_by_name(element_name)
     if not element:
@@ -102,7 +99,7 @@ def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.
     if not sinkpad:
         raise Exception("Unable to get %s pad of %s" % (pad_name, element_name))
     counter = 0
-    sinkpad.add_probe(probe_type, callback, {"model": model, "milvus": milvus, "counter": counter, "metrics": metrics})
+    sinkpad.add_probe(probe_type, callback, {"model": model, "milvus": milvus, "counter": counter, "metrics": metrics, "device": device})
 
 
 def format_clock_time(ns):
@@ -136,7 +133,7 @@ def set_event_message_meta_probe(pad, info, u_data):
             caps = pad.get_current_caps()
             image_array = utils.gst_buffer_with_caps_to_ndarray(gst_buffer, caps)
             metric["start"] = time.time()
-            embeds = inference(u_data["model"], image_array)
+            embeds = inference(u_data["model"], image_array, u_data["device"])
             embeds = embeds.detach().numpy()
             metric["inference"] = time.time()
             milvus = u_data["milvus"]
@@ -204,7 +201,7 @@ def main():
     pravegasrc.set_property('controller', args.controller)
     pravegasrc.set_property('stream', '%s/%s' % (args.scope, args.stream))
     pravegasrc.set_property("start-mode", 'earliest')
-    pravegasrc.set_property("end-mode", 'latest')
+    pravegasrc.set_property("end-mode", 'unbounded')
     pravegasrc.set_property("allow-create-scope", True)
     
     # Initialize the model
@@ -218,7 +215,7 @@ def main():
 
     sink = pipeline.get_by_name("sink")
     if sink:
-        add_probe(pipeline, "sink", set_event_message_meta_probe, pad_name='sink', model=model, milvus=milvus_coollection, metrics=metrics)
+        add_probe(pipeline, "sink", set_event_message_meta_probe, pad_name='sink', model=model, milvus=milvus_coollection, metrics=metrics, device=device)
 
     # Create an event loop and feed GStreamer bus messages to it.
     loop = GLib.MainLoop()
