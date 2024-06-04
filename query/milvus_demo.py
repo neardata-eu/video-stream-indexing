@@ -25,9 +25,8 @@ import json
 latency_dict = {}
 
 
-def inference(model, image):
+def inference(model, image, device):
     """Extract features from an image"""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     image = cv2.resize(np.array(image), (384, 216))
     preprocess = transforms.Compose([
             transforms.ToTensor(),
@@ -35,7 +34,7 @@ def inference(model, image):
         ])
     input_batch = preprocess(image).unsqueeze(0)
     embedding = model(input_batch.to(device))
-    return embedding.cpu().detach().numpy()
+    return embedding.cpu()
 
 
 class FeatureResNet(nn.Module):
@@ -98,7 +97,10 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
         for hit in hits:
             if (hit.distance < 0.9):
                 fail_num += 1
-                latency_dict["index_search_ms"] = f"{(search_time - start)*1000},0\n"
+                latency_dict["frame_search_retrieve"].append({
+                    "index_search_ms": (search_time - start)*1000,
+                    "pravega_retrieve_ms": 0
+                })
             else:
                 print(f"Processing hit {hit.pk} with distance {hit.distance}")
                 bounds = milvus_client.get(collection_name=collection_name, ids=[int(hit.pk)-20, int(hit.pk)+20], output_fields=["offset"])
@@ -112,7 +114,10 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
                 hit_num += 1
                 
                 pravega_retrieve = time.time()
-                latency_dict["pravega_retrieve_ms"] = f"{(get_bounds-start)*1000},{(pravega_retrieve-get_bounds)*1000}\n"
+                latency_dict["frame_search_retrieve"].append({
+                    "index_search_ms": (get_bounds - start)*1000,
+                    "pravega_retrieve_ms": (pravega_retrieve-get_bounds)*1000
+                })
                 
                 gb_retrieved += os.path.getsize(f"/project/results/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
     return hit_num, fail_num, gb_retrieved
@@ -132,16 +137,15 @@ def main():
     print("Initializing model")
     model = FeatureResNet()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
     model.to(device)
     model.eval()
     start = time.time()
-    embeds = inference(model, np.array(img))  # Get embeddings
+    embeds = inference(model, np.array(img), device)  # Get embeddings
     inference_time = time.time()
     latency_dict["inference_ms"] = (inference_time - start)*1000
 
     ## Search global index
-    candidates = search_global("global", embeds, ["collection"])
+    candidates = search_global("global", embeds.detach().numpy(), ["collection"])
     global_search = time.time()
     latency_dict["search_global_ms"] = (global_search - inference_time)*1000
     
@@ -155,9 +159,10 @@ def main():
     gb_retrieved = 0
     
     #collection_list = utility.list_collections()
+    latency_dict["frame_search_retrieve"] = []
     for collection_name in candidates: # Search in the candidate collections
         output_fields=["offset", "pk"]
-        hit, fail, gb = search(client, collection_name, embeds, output_fields)
+        hit, fail, gb = search(client, collection_name, embeds.detach().numpy(), output_fields)
         hit_num += hit
         fail_num += fail
         gb_retrieved += gb
