@@ -19,9 +19,10 @@ import os
 import subprocess
 import time
 from collections import defaultdict
+import json
 
 
-latency_log = open("../results/query.log", "a")
+latency_dict = {}
 
 
 def inference(model, image):
@@ -97,7 +98,7 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
         for hit in hits:
             if (hit.distance < 0.9):
                 fail_num += 1
-                latency_log.write(f"{(search_time - start)*1000},0\n")
+                latency_dict["index_search_ms"] = f"{(search_time - start)*1000},0\n"
             else:
                 print(f"Processing hit {hit.pk} with distance {hit.distance}")
                 bounds = milvus_client.get(collection_name=collection_name, ids=[int(hit.pk)-20, int(hit.pk)+20], output_fields=["offset"])
@@ -111,7 +112,7 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
                 hit_num += 1
                 
                 pravega_retrieve = time.time()
-                latency_log.write(f"{(get_bounds-start)*1000},{(pravega_retrieve-get_bounds)*1000}\n")
+                latency_dict["pravega_retrieve_ms"] = f"{(get_bounds-start)*1000},{(pravega_retrieve-get_bounds)*1000}\n"
                 
                 gb_retrieved += os.path.getsize(f"/project/results/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
     return hit_num, fail_num, gb_retrieved
@@ -137,12 +138,12 @@ def main():
     start = time.time()
     embeds = inference(model, np.array(img))  # Get embeddings
     inference_time = time.time()
-    latency_log.write(f"inference(ms)\n{(inference_time - start)*1000}\n")
+    latency_dict["inference_ms"] = (inference_time - start)*1000
 
     ## Search global index
     candidates = search_global("global", embeds, ["collection"])
     global_search = time.time()
-    latency_log.write(f"search_global(ms)\n{(global_search - inference_time)*1000}\n")
+    latency_dict["search_global_ms"] = (global_search - inference_time)*1000
     
     print("Candidates found:")
     print(candidates)
@@ -154,7 +155,6 @@ def main():
     gb_retrieved = 0
     
     #collection_list = utility.list_collections()
-    latency_log.write(f"index search(ms),pravega retrieve(ms)\n")
     for collection_name in candidates: # Search in the candidate collections
         output_fields=["offset", "pk"]
         hit, fail, gb = search(client, collection_name, embeds, output_fields)
@@ -162,8 +162,10 @@ def main():
         fail_num += fail
         gb_retrieved += gb
 
-    latency_log.write("\n")
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
+    
+    with open("/project/results/query_logs.json", "w") as f:
+        json.dump(latency_dict, f)
 
     
 if __name__ == "__main__":
