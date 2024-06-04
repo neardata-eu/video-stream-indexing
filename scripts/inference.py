@@ -41,6 +41,10 @@ from pymilvus import (
     Collection,
 )
 
+latency_log = open("../results/inference.log", "a")
+latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms)\n")
+global_var = {"counter": 0}
+
 class FeatureResNet(nn.Module):
     """ResNet model for feature extraction."""
     def __init__(self, num_features = 4096):
@@ -90,7 +94,7 @@ def bus_call(bus, message, loop):
     return True
 
 
-def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER, model=None, milvus=None, metrics=None, device=None):
+def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER, model=None, milvus=None, global_milvus=None, device=None):
     logging.info("add_probe: Adding probe to %s pad of %s" % (pad_name, element_name))
     element = pipeline.get_by_name(element_name)
     if not element:
@@ -98,8 +102,7 @@ def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.
     sinkpad = element.get_static_pad(pad_name)
     if not sinkpad:
         raise Exception("Unable to get %s pad of %s" % (pad_name, element_name))
-    counter = 0
-    sinkpad.add_probe(probe_type, callback, {"model": model, "milvus": milvus, "counter": counter, "metrics": metrics, "device": device})
+    sinkpad.add_probe(probe_type, callback, {"model": model, "milvus": milvus, "global_milvus": global_milvus, "device": device})
 
 
 def format_clock_time(ns):
@@ -117,6 +120,7 @@ def set_event_message_meta_probe(pad, info, u_data):
         meta = gst_buffer.get_reference_timestamp_meta(caps)
 
         if not gst_buffer.has_flags(Gst.BufferFlags.DELTA_UNIT) and meta.duration != Gst.CLOCK_TIME_NONE:
+            time_nanosec = time.time_ns()
             logging.info("set_event_message_meta_probe: %s:%s: pts=%23s, dts=%23s, offset=%d, event_head_offset=%d, event_tail_offset=%d, duration=%23s, size=%8d" % (
                 pad.get_parent_element().name,
                 pad.name,
@@ -129,19 +133,28 @@ def set_event_message_meta_probe(pad, info, u_data):
                 gst_buffer.get_size()
             ))
             # To do inference here
-            metric = {}
             caps = pad.get_current_caps()
             image_array = utils.gst_buffer_with_caps_to_ndarray(gst_buffer, caps)
-            metric["start"] = time.time()
+            global_var["size"] = image_array.shape
+            start_time = time.time()
             embeds = inference(u_data["model"], image_array, u_data["device"])
             embeds = embeds.detach().numpy()
-            metric["inference"] = time.time()
+            inference_time = time.time()
             milvus = u_data["milvus"]
-            insert_data = [[u_data["counter"]], embeds, [str(meta.timestamp)]]
-            insert_result = milvus.insert(insert_data)
-            metric["insert"] = time.time()
-            u_data["metrics"].append(metric)
-            u_data["counter"] += 1
+            insert_data = [[global_var["counter"]], embeds, [str(meta.timestamp)]]
+            milvus.insert(insert_data)
+            
+            if (global_var["counter"] % 30) == 0:
+                global_milvus = u_data["global_milvus"]
+                insert_data = [embeds, [str(milvus.name)]]
+                global_milvus.insert(insert_data)
+            insert_time = time.time()
+            global_var["counter"] += 1
+            
+            latency_log.write(str(global_var["counter"]) + "," +
+                              str(((time_nanosec - (gst_buffer.pts - 37000000000)) / 1000000.)) + "," +
+                              str((inference_time - start_time)*1000) + "," +
+                              str((insert_time - inference_time)*1000) + "\n")
     return Gst.PadProbeReturn.OK
 
 
@@ -153,6 +166,29 @@ def init_milvus(collection_name):
             FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=False, max_length=100),
             FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=2048),
             FieldSchema(name="offset", dtype=DataType.VARCHAR, max_length=100),
+        ]
+
+        schema = CollectionSchema(fields, "This is a demo schema")
+        collection = Collection(collection_name, schema, consistency_level="Strong")
+        
+        index = {
+            "index_type": "FLAT",
+            "metric_type": "COSINE"
+        }
+        collection.create_index("embeddings", index)
+    else:
+        collection = Collection(collection_name)
+    return collection
+
+
+def init_global(collection_name):
+    # Connect to Milvus
+    connections.connect("default", host='localhost', port='19530')
+    if not utility.has_collection(collection_name):
+        fields = [
+            FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=True, max_length=100),
+            FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=2048),
+            FieldSchema(name="collection", dtype=DataType.VARCHAR, max_length=100),
         ]
 
         schema = CollectionSchema(fields, "This is a demo schema")
@@ -210,12 +246,12 @@ def main():
     model.to(device)
     model.eval()
     
-    milvus_coollection = init_milvus(args.stream)
-    metrics = []
+    milvus_collection = init_milvus(args.stream)
+    milvus_global_collection = init_global("global")
 
     sink = pipeline.get_by_name("sink")
     if sink:
-        add_probe(pipeline, "sink", set_event_message_meta_probe, pad_name='sink', model=model, milvus=milvus_coollection, metrics=metrics, device=device)
+        add_probe(pipeline, "sink", set_event_message_meta_probe, pad_name='sink', model=model, milvus=milvus_collection, global_milvus=milvus_global_collection, device=device)
 
     # Create an event loop and feed GStreamer bus messages to it.
     loop = GLib.MainLoop()
@@ -225,6 +261,7 @@ def main():
 
     # Start play back and listen to events.
     logging.info('Starting pipeline')
+    pipeline_start = time.time()
     pipeline.set_state(Gst.State.PLAYING)
     try:
         loop.run()
@@ -233,11 +270,21 @@ def main():
         # Cleanup GStreamer elements.
         pipeline.set_state(Gst.State.NULL)
         raise
-
-    milvus_coollection.flush()
     
-    with open('/project/results/inference_metrics.json', 'w') as f:
-        json.dump(metrics, f)
+    pipeline_finish = time.time()
+    
+    batch_log = open("../results/inference_batch.log", "a")
+    batch_log.write("pipeline duration(s),total data(mb),throughput(mbps)\n")
+    pipeline_duration = pipeline_finish - pipeline_start
+    total_data = global_var["counter"]*global_var["size"][0]*global_var["size"][1]*global_var["size"][2]/1024/1024
+    batch_log.write(str(pipeline_duration) + "," + 
+                    str(total_data) + "," + 
+                    str(total_data/pipeline_duration) + "\n")
+
+    milvus_collection.flush()
+    milvus_global_collection.flush()
+    latency_log.close()
+    batch_log.close()
 
     pipeline.set_state(Gst.State.NULL)
     logging.info('END')
