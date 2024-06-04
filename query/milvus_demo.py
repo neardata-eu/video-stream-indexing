@@ -18,6 +18,10 @@ import cv2
 import os
 import subprocess
 import time
+from collections import defaultdict
+
+
+latency_log = open("../results/query.log", "a")
 
 
 def inference(model, image):
@@ -66,16 +70,25 @@ def search_global(collection_name, embedding, fields, k=4):
     
     for hits in result:
         for hit in hits:
-            videos.append(hit.collection)
-            
-    return list(set(videos))[:k]
+            videos.append((hit.collection, hit.distance))
+    
+    highest_values = defaultdict(lambda: float('-inf'))  # Initialize with negative infinity
+
+    for key, value in videos:
+        # Update the highest value if the current value is greater.
+        highest_values[key] = max(highest_values[key], value)
+
+    sorted_data = sorted(highest_values.items(), key=lambda item: item[1], reverse=True)
+    return [item[0] for item in sorted_data[:k]]
 
 
 def search(milvus_client, collection_name, embedding, fields, k=1):
     collection = Collection(collection_name)
     collection.load()
     
+    start = time.time()
     result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k, output_fields=fields)
+    search_time = time.time()
     
     hit_num = 0
     fail_num = 0
@@ -84,9 +97,11 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
         for hit in hits:
             if (hit.distance < 0.9):
                 fail_num += 1
+                latency_log.write(f"{(search_time - start)*1000},0\n")
             else:
                 print(f"Processing hit {hit.pk} with distance {hit.distance}")
                 bounds = milvus_client.get(collection_name=collection_name, ids=[int(hit.pk)-20, int(hit.pk)+20], output_fields=["offset"])
+                get_bounds = time.time()
                 
                 os.environ['BEGIN_OFFSET'] = bounds[0]["offset"]
                 os.environ['END_OFFSET'] = bounds[1]["offset"]
@@ -94,6 +109,9 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
                 
                 subprocess.run(['bash', '/project/scripts/export.sh', collection_name, f"{collection_name}_{hit.pk}"], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 hit_num += 1
+                
+                pravega_retrieve = time.time()
+                latency_log.write(f"{(get_bounds-start)*1000},{(pravega_retrieve-get_bounds)*1000}\n")
                 
                 gb_retrieved += os.path.getsize(f"/project/results/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
     return hit_num, fail_num, gb_retrieved
@@ -113,12 +131,18 @@ def main():
     print("Initializing model")
     model = FeatureResNet()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
     model.to(device)
     model.eval()
+    start = time.time()
     embeds = inference(model, np.array(img))  # Get embeddings
+    inference_time = time.time()
+    latency_log.write(f"inference(ms)\n{(inference_time - start)*1000}\n")
 
     ## Search global index
     candidates = search_global("global", embeds, ["collection"])
+    global_search = time.time()
+    latency_log.write(f"search_global(ms)\n{(global_search - inference_time)*1000}\n")
     
     print("Candidates found:")
     print(candidates)
@@ -130,13 +154,15 @@ def main():
     gb_retrieved = 0
     
     #collection_list = utility.list_collections()
+    latency_log.write(f"index search(ms),pravega retrieve(ms)\n")
     for collection_name in candidates: # Search in the candidate collections
         output_fields=["offset", "pk"]
         hit, fail, gb = search(client, collection_name, embeds, output_fields)
         hit_num += hit
         fail_num += fail
         gb_retrieved += gb
-                        
+
+    latency_log.write("\n")
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
 
     
