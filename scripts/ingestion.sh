@@ -37,6 +37,8 @@ gst-launch-1.0 \
 filesrc location="${FILESRC_PATH}" \
 ! decodebin \
 ! videoconvert \
+! videoscale \
+! video/x-raw,width=940,height=560 \
 ! queue \
 ! x264enc tune=zerolatency key-int-max=${KEY_FRAME_INTERVAL} \
 ! queue \

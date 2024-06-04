@@ -41,10 +41,10 @@ docker run -p 8000:3000 -e MILVUS_URL=172.17.0.1:19530 zilliz/attu:v2.3.10
 ```
 
 ## Run pipeline
-Setup docker container (change `/mnt/data/projects/gstreamer-pravega/` accordingly to the location of this repository):
+Setup docker container (change `/mnt/data/projects/video-stream-indexing/` accordingly to the location of this repository):
 ```
 xhost +
-docker run -it -v /mnt/data/projects/gstreamer-pravega/:/project --net=host --env="DISPLAY" --volume="$HOME/.Xauthority:/root/.Xauthority:rw" arnaugabriel/video-indexing:latest bash
+docker run -it -v /mnt/data/projects/video-stream-indexing/:/project --net=host --env="DISPLAY" --volume="$HOME/.Xauthority:/root/.Xauthority:rw" arnaugabriel/video-indexing:latest bash
 ```
 
 Ingest local video to pravega

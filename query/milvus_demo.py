@@ -18,19 +18,19 @@ import cv2
 import os
 import subprocess
 import time
-import json
 
 
 def inference(model, image):
     """Extract features from an image"""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     image = cv2.resize(np.array(image), (384, 216))
     preprocess = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
     input_batch = preprocess(image).unsqueeze(0)
-    embedding = model(input_batch)
-    return embedding
+    embedding = model(input_batch.to(device))
+    return embedding.cpu().detach().numpy()
 
 
 class FeatureResNet(nn.Module):
@@ -54,7 +54,50 @@ class FeatureResNet(nn.Module):
         x = x.view(x.size(0), -1)
 
         return x
+
+
+def search_global(collection_name, embedding, fields, k=4):
+    collection = Collection(collection_name)
+    collection.load()
     
+    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k*30, output_fields=fields)
+    
+    videos = []
+    
+    for hits in result:
+        for hit in hits:
+            videos.append(hit.collection)
+            
+    return list(set(videos))[:k]
+
+
+def search(milvus_client, collection_name, embedding, fields, k=1):
+    collection = Collection(collection_name)
+    collection.load()
+    
+    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k, output_fields=fields)
+    
+    hit_num = 0
+    fail_num = 0
+    gb_retrieved = 0
+    for hits in result:
+        for hit in hits:
+            if (hit.distance < 0.9):
+                fail_num += 1
+            else:
+                print(f"Processing hit {hit.pk} with distance {hit.distance}")
+                bounds = milvus_client.get(collection_name=collection_name, ids=[int(hit.pk)-20, int(hit.pk)+20], output_fields=["offset"])
+                
+                os.environ['BEGIN_OFFSET'] = bounds[0]["offset"]
+                os.environ['END_OFFSET'] = bounds[1]["offset"]
+                env = os.environ.copy()
+                
+                subprocess.run(['bash', '/project/scripts/export.sh', collection_name, f"{collection_name}_{hit.pk}"], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                hit_num += 1
+                
+                gb_retrieved += os.path.getsize(f"/project/results/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
+    return hit_num, fail_num, gb_retrieved
+
 
 def main():   
     ## Connect to Milvus
@@ -74,48 +117,27 @@ def main():
     model.eval()
     embeds = inference(model, np.array(img))  # Get embeddings
 
-    ## Perform search
+    ## Search global index
+    candidates = search_global("global", embeds, ["collection"])
+    
+    print("Candidates found:")
+    print(candidates)
+
+    ## Perform queries
     print("Performing search")
     hit_num = 0
     fail_num = 0
     gb_retrieved = 0
-    search_params = {"metric_type": "COSINE"}
-    script_path = '/project/scripts/export.sh'
-    metrics = []
     
-    collection_list = utility.list_collections()
-    for collection_name in collection_list:
-        metric = {}
-        metric["start"] = time.time()
-        collection = Collection(collection_name)
-        collection.load()
-        
-        result = collection.search(embeds.detach().numpy(), "embeddings", search_params, limit=1, output_fields=["offset", "pk"])
-        
-        for hits in result:
-            for hit in hits:
-                if (hit.distance < 0.9):
-                    fail_num += 1
-                else:
-                    print(f"Processing hit {hit.pk} with distance {hit.distance}")
-                    bounds = client.get(collection_name=collection_name, ids=[int(hit.pk)-20, int(hit.pk)+20], output_fields=["offset"])
-                    metric["query"] = time.time()
-                    
-                    os.environ['BEGIN_OFFSET'] = bounds[0]["offset"]
-                    os.environ['END_OFFSET'] = bounds[1]["offset"]
-                    env = os.environ.copy()
-                    
-                    subprocess.run(['bash', script_path, collection_name, f"{collection_name}_{hit.pk}"], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    hit_num += 1
-                    metric["pravega_retrieve"] = time.time()
-                    
-                    gb_retrieved += os.path.getsize(f"/project/results/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
-        metrics.append(metric)
+    #collection_list = utility.list_collections()
+    for collection_name in candidates: # Search in the candidate collections
+        output_fields=["offset", "pk"]
+        hit, fail, gb = search(client, collection_name, embeds, output_fields)
+        hit_num += hit
+        fail_num += fail
+        gb_retrieved += gb
                         
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
-    
-    with open("/project/results/query_metrics.json", "w") as f:
-        json.dump(metrics, f)
 
     
 if __name__ == "__main__":
