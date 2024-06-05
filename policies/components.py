@@ -1,4 +1,4 @@
-from model import FeatureResNet
+from policies.model import FeatureResNet
 
 from torchvision import transforms
 import numpy as np

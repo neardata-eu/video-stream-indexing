@@ -40,4 +40,4 @@ filesrc location="${FILESRC_PATH}" \
 ! x264enc tune=zerolatency key-int-max=${KEY_FRAME_INTERVAL} \
 ! queue \
 ! timestampcvt input-timestamp-mode=start-at-current-time \
-! pravegasink stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER} allow-create-scope=true seal=false sync=false timestamp-mode=tai
+! pravegasink stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER} allow-create-scope=true seal=true sync=false timestamp-mode=tai

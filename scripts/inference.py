@@ -10,6 +10,11 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
+## Import other packages
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 ## General libraries
 import argparse
 import logging
