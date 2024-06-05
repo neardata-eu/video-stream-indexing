@@ -106,11 +106,8 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
                 bounds = milvus_client.get(collection_name=collection_name, ids=[int(hit.pk)-20, int(hit.pk)+20], output_fields=["offset"])
                 get_bounds = time.time()
                 
-                os.environ['BEGIN_OFFSET'] = bounds[0]["offset"]
-                os.environ['END_OFFSET'] = bounds[1]["offset"]
                 env = os.environ.copy()
-                
-                subprocess.run(['bash', '/project/scripts/export.sh', collection_name, f"{collection_name}_{hit.pk}"], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(['bash', '/project/scripts/export.sh', collection_name, f"{collection_name}_{hit.pk}", bounds[0]["offset"], bounds[1]["offset"]], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 hit_num += 1
                 
                 pravega_retrieve = time.time()

@@ -12,29 +12,24 @@
 
 set -ex
 
-if [ $# -eq 0 ]; then
-    echo "Usage: $0 <pravega_stream>"
+if [ $# -ne 4 ]; then
+    echo "Usage: $0 <pravega_stream> <output_file> <begin_offset> <end_offset>"
     exit 1
 fi
 PRAVEGA_STREAM="$1"
 FILE_NAME="$2"
+BEGIN_OFFSET="$3"
+END_OFFSET="$4"
 
+eval "$(python3 /project/policies/constants.py)"
 ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/apps
-#cargo build
-
-#export RUST_LOG=${RUST_LOG:-info}
 export RUST_BACKTRACE=1
-PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-172.28.1.1:9090}
-PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-
-BEGIN_OFFSET=${BEGIN_OFFSET:-0}
-END_OFFSET=${END_OFFSET:-0}
 
 cargo run --bin pravega_stream_exporter -- \
---controller ${PRAVEGA_CONTROLLER_URI} \
+--controller ${PRAVEGA_CONTROLLER} \
 --scope ${PRAVEGA_SCOPE} \
 --stream ${PRAVEGA_STREAM} \
 --begin-offset ${BEGIN_OFFSET} \
 --end-offset ${END_OFFSET} \
---file-path /project/results/${FILE_NAME}.h264
+--file-path /project/results/${FILE_NAME}
