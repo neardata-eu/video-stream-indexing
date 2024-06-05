@@ -15,7 +15,6 @@ import argparse
 import logging
 import time
 import traceback
-import numpy as np
 
 ## Import User policies
 from policies.components import get_model, inference, do_sampling
@@ -30,10 +29,6 @@ gi.require_version('GObject', '2.0')
 from gi.repository import GLib, GObject, Gst # type: ignore
 from gstreamer import utils
 
-## ML libraries
-from torchvision import transforms
-from torch import nn
-
 ## Milvus
 from pymilvus import (
     connections,
@@ -41,7 +36,6 @@ from pymilvus import (
     FieldSchema, CollectionSchema, DataType,
     Collection,
 )
-
 
 ## Setup metric logging file
 latency_log = open("../results/inference.log", "a")

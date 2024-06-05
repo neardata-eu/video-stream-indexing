@@ -1,12 +1,8 @@
 from model import FeatureResNet
 
-import numpy as np
-
-## ML libraries
-import torchvision
-import torch
 from torchvision import transforms
-from torch import nn
+import numpy as np
+import torch
 import cv2
 
 def get_model():

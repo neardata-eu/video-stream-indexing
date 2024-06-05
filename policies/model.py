@@ -1,13 +1,9 @@
-## ML libraries
 import torchvision
-import torch
-from torchvision import transforms
 from torch import nn
-import cv2
 
 class FeatureResNet(nn.Module):
     """ResNet model for feature extraction."""
-    def __init__(self, num_features = 4096):
+    def __init__(self):
         super(FeatureResNet, self).__init__()
         self.resnet = torchvision.models.resnet50(weights="IMAGENET1K_V1")
 
