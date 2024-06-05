@@ -12,24 +12,21 @@
 
 set -ex
 
-if [ $# -eq 0 ]; then
-    echo "Usage: $0 <video_path> <pravega_stream>"
+if [ $# -ne 3 ]; then
+    echo "Usage: $0 <video_path> <pravega_stream> <fps>"
     exit 1
 fi
 FILESRC_PATH="$1"
 PRAVEGA_STREAM="$2"
+FPS="$3"
 
+eval "$(python3 /project/policies/constants.py)"
 ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/gst-plugin-pravega
-#cargo build
-ls -lh ${ROOT_DIR}/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
-# log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
 export RUST_BACKTRACE=1
 export TZ=UTC
-PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-172.28.1.1:9090}
-FPS=25
 KEY_FRAME_INTERVAL=$((1*$FPS))
 
 gst-launch-1.0 \
@@ -43,4 +40,4 @@ filesrc location="${FILESRC_PATH}" \
 ! x264enc tune=zerolatency key-int-max=${KEY_FRAME_INTERVAL} \
 ! queue \
 ! timestampcvt input-timestamp-mode=start-at-current-time \
-! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} allow-create-scope=true seal=false sync=false timestamp-mode=tai
+! pravegasink stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER} allow-create-scope=true seal=false sync=false timestamp-mode=tai

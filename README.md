@@ -49,7 +49,7 @@ docker run -it -v /mnt/data/projects/video-stream-indexing/:/project --net=host 
 
 Ingest local video to pravega
 ```
-bash ingestion.sh /project/videos/sample.mp4 <stream_name>
+bash ingestion.sh /project/videos/<video_name>.mp4 <stream_name> <fps>
 ```
 
 Display pravega video to screen

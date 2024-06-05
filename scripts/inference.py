@@ -16,7 +16,11 @@ import logging
 import time
 import traceback
 import numpy as np
-import json
+
+## Import User policies
+from policies.components import get_model, inference, do_sampling
+from policies.constants import (PRAVEGA_CONTROLLER, PRAVEGA_SCOPE,
+                                MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE)
 
 ## Gstreamer and Pravega libraries
 import gi # type: ignore
@@ -27,11 +31,8 @@ from gi.repository import GLib, GObject, Gst # type: ignore
 from gstreamer import utils
 
 ## ML libraries
-import torchvision
-import torch
 from torchvision import transforms
 from torch import nn
-import cv2
 
 ## Milvus
 from pymilvus import (
@@ -41,42 +42,11 @@ from pymilvus import (
     Collection,
 )
 
+
+## Setup metric logging file
 latency_log = open("../results/inference.log", "a")
 latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms)\n")
 global_var = {"counter": 0}
-
-class FeatureResNet(nn.Module):
-    """ResNet model for feature extraction."""
-    def __init__(self, num_features = 4096):
-        super(FeatureResNet, self).__init__()
-        self.resnet = torchvision.models.resnet50(weights="IMAGENET1K_V1")
-
-    def forward(self, x):
-        x = self.resnet.conv1(x)
-        x = self.resnet.bn1(x)
-        x = self.resnet.relu(x)
-        x = self.resnet.maxpool(x)
-
-        x = self.resnet.layer1(x)
-        x = self.resnet.layer2(x)
-        x = self.resnet.layer3(x)
-        x = self.resnet.layer4(x)
-
-        x = self.resnet.avgpool(x)
-        x = x.view(x.size(0), -1)
-
-        return x
-    
-def inference(model, image, device):
-    """Extract features from an image"""
-    image = cv2.resize(np.array(image), (384, 216))
-    preprocess = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
-    input_batch = preprocess(image).unsqueeze(0)
-    embedding = model(input_batch.to(device))
-    return embedding.cpu()
 
 
 def bus_call(bus, message, loop):
@@ -116,10 +86,11 @@ def format_clock_time(ns):
 def set_event_message_meta_probe(pad, info, u_data):
     gst_buffer = info.get_buffer()
     if gst_buffer:
+        # Only process keyframes
         caps = Gst.Caps.new_empty_simple("pravega-stream-metadata")
         meta = gst_buffer.get_reference_timestamp_meta(caps)
-
-        if not gst_buffer.has_flags(Gst.BufferFlags.DELTA_UNIT) and meta.duration != Gst.CLOCK_TIME_NONE:
+        if not gst_buffer.has_flags(Gst.BufferFlags.DELTA_UNIT) and meta.duration != Gst.CLOCK_TIME_NONE:   
+            # Debugging info
             time_nanosec = time.time_ns()
             logging.info("set_event_message_meta_probe: %s:%s: pts=%23s, dts=%23s, offset=%d, event_head_offset=%d, event_tail_offset=%d, duration=%23s, size=%8d" % (
                 pad.get_parent_element().name,
@@ -132,25 +103,33 @@ def set_event_message_meta_probe(pad, info, u_data):
                 format_clock_time(gst_buffer.duration),
                 gst_buffer.get_size()
             ))
-            # To do inference here
+            
+            # Fetch the image from buffer
             caps = pad.get_current_caps()
             image_array = utils.gst_buffer_with_caps_to_ndarray(gst_buffer, caps)
-            global_var["size"] = image_array.shape
+            global_var["size"] = image_array.shape # Store the original image size to calculate real size
+            
+            # Perform inference
             start_time = time.time()
             embeds = inference(u_data["model"], image_array, u_data["device"])
             embeds = embeds.detach().numpy()
             inference_time = time.time()
+            
+            # Insert the embedding into this stream's collection
             milvus = u_data["milvus"]
             insert_data = [[global_var["counter"]], embeds, [str(meta.timestamp)]]
             milvus.insert(insert_data)
             
-            if (global_var["counter"] % 30) == 0:
+            # If necessary, insert the embedding into the global collection
+            if do_sampling():
                 global_milvus = u_data["global_milvus"]
                 insert_data = [embeds, [str(milvus.name)]]
                 global_milvus.insert(insert_data)
             insert_time = time.time()
-            global_var["counter"] += 1
             
+            global_var["counter"] += 1  # Update frame counter
+            
+            # Log the latency
             latency_log.write(str(global_var["counter"]) + "," +
                               str(((time_nanosec - (gst_buffer.pts - 37000000000)) / 1000000.)) + "," +
                               str((inference_time - start_time)*1000) + "," +
@@ -158,22 +137,20 @@ def set_event_message_meta_probe(pad, info, u_data):
     return Gst.PadProbeReturn.OK
 
 
-def init_milvus(collection_name):
-    # Connect to Milvus
-    connections.connect("default", host='localhost', port='19530')
-    if not utility.has_collection(collection_name):
+def init_collection(collection_name):
+    if not utility.has_collection(collection_name): # Check if the collection already exists
         fields = [
             FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=False, max_length=100),
             FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=2048),
             FieldSchema(name="offset", dtype=DataType.VARCHAR, max_length=100),
         ]
-
-        schema = CollectionSchema(fields, "This is a demo schema")
+        schema = CollectionSchema(fields, "Video Stream")
         collection = Collection(collection_name, schema, consistency_level="Strong")
         
         index = {
-            "index_type": "FLAT",
-            "metric_type": "COSINE"
+            "index_type": "IVF_FLAT",
+            "metric_type": "COSINE",
+            "params": {"nlist": 64},
         }
         collection.create_index("embeddings", index)
     else:
@@ -181,34 +158,30 @@ def init_milvus(collection_name):
     return collection
 
 
-def init_global(collection_name):
-    # Connect to Milvus
-    connections.connect("default", host='localhost', port='19530')
-    if not utility.has_collection(collection_name):
+def init_global_collection():
+    if not utility.has_collection("global"): # Check if the collection already exists
         fields = [
             FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=True, max_length=100),
             FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=2048),
             FieldSchema(name="collection", dtype=DataType.VARCHAR, max_length=100),
         ]
-
-        schema = CollectionSchema(fields, "This is a demo schema")
-        collection = Collection(collection_name, schema, consistency_level="Strong")
+        schema = CollectionSchema(fields, "Global Index")
+        collection = Collection("global", schema, consistency_level="Strong")
         
         index = {
-            "index_type": "FLAT",
-            "metric_type": "COSINE"
+            "index_type": "IVF_FLAT",
+            "metric_type": "COSINE",
+            "params": {"nlist": 64},
         }
         collection.create_index("embeddings", index)
-    else:
-        collection = Collection(collection_name)
+    else:   # Connect to existing collection
+        collection = Collection("global")
     return collection
 
 
 def main():
     parser = argparse.ArgumentParser(description='Pravega inferene job')
-    parser.add_argument('--controller', default='172.28.1.1:9090')
     parser.add_argument('--log_level', type=int, default=logging.INFO, help='10=DEBUG,20=INFO')
-    parser.add_argument('--scope', default='examples')
     parser.add_argument('--stream', default='urv6')
     args = parser.parse_args()
 
@@ -234,20 +207,18 @@ def main():
     pipeline = Gst.parse_launch(pipeline_description)
 
     pravegasrc = pipeline.get_by_name('src')
-    pravegasrc.set_property('controller', args.controller)
-    pravegasrc.set_property('stream', '%s/%s' % (args.scope, args.stream))
+    pravegasrc.set_property('controller', PRAVEGA_CONTROLLER)
+    pravegasrc.set_property('stream', '%s/%s' % (PRAVEGA_SCOPE, args.stream))
     pravegasrc.set_property("start-mode", 'earliest')
     pravegasrc.set_property("end-mode", 'unbounded')
     pravegasrc.set_property("allow-create-scope", True)
     
     # Initialize the model
-    model = FeatureResNet()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    model.eval()
+    model, device = get_model()
     
-    milvus_collection = init_milvus(args.stream)
-    milvus_global_collection = init_global("global")
+    connections.connect(MILVUS_NAMESPACE, host=MILVUS_HOST, port=MILVUS_PORT)
+    milvus_collection = init_collection(args.stream)
+    milvus_global_collection = init_global_collection()
 
     sink = pipeline.get_by_name("sink")
     if sink:
