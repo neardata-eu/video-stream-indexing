@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from pymilvus import (
     connections,
     utility,
@@ -15,11 +19,13 @@ from torchvision import transforms
 from torch import nn
 import cv2
 
-import os
 import subprocess
 import time
 from collections import defaultdict
 import json
+from datetime import datetime
+
+from policies.constants import (MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE)
 
 
 latency_dict = {}
@@ -123,7 +129,7 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
 def main():   
     ## Connect to Milvus
     print("Connecting to Milvus")
-    connections.connect("default", host="localhost", port="19530")
+    connections.connect(MILVUS_NAMESPACE, host=MILVUS_HOST, port=MILVUS_PORT)
     client = MilvusClient()
 
     ## Read our query image
@@ -166,7 +172,8 @@ def main():
 
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
     
-    with open("/project/results/query_logs.json", "w") as f:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    with open(f"/project/results/query_logs_{timestamp}.json", "w") as f:
         json.dump(latency_dict, f)
 
     

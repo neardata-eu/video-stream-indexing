@@ -20,6 +20,7 @@ import argparse
 import logging
 import time
 import traceback
+from datetime import datetime
 
 ## Import User policies
 from policies.components import get_model, inference, do_sampling
@@ -43,7 +44,8 @@ from pymilvus import (
 )
 
 ## Setup metric logging file
-latency_log = open("../results/inference.log", "a")
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+latency_log = open(f"/project/results/inference_log_{timestamp}.log", "a")
 latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms)\n")
 global_var = {"counter": 0}
 
@@ -243,7 +245,7 @@ def main():
     
     pipeline_finish = time.time()
     
-    batch_log = open("../results/inference_batch.log", "a")
+    batch_log = open(f"/project/results/inference_batch_log_{timestamp}.log", "a")
     batch_log.write("pipeline duration(s),total data(mb),throughput(mbps)\n")
     pipeline_duration = pipeline_finish - pipeline_start
     total_data = global_var["counter"]*global_var["size"][0]*global_var["size"][1]*global_var["size"][2]/1024/1024
