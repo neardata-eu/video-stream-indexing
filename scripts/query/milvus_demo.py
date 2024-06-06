@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from pymilvus import (
     connections,
@@ -113,7 +113,7 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
                 get_bounds = time.time()
                 
                 env = os.environ.copy()
-                subprocess.run(['bash', '/project/scripts/export.sh', collection_name, f"{collection_name}_{hit.pk}", bounds[0]["offset"], bounds[1]["offset"]], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(['bash', '/project/scripts/query/export.sh', collection_name, f"{collection_name}_{hit.pk}.h264", bounds[0]["offset"], bounds[1]["offset"]], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 hit_num += 1
                 
                 pravega_retrieve = time.time()
