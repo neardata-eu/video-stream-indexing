@@ -1,0 +1,126 @@
+- name: Install Docker
+  hosts: ["client", "gpu", "milvus"]
+  tags: ["client", "gpu", "milvus"]
+  connection: ssh
+  remote_user: ubuntu
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name: ['ca-certificates', 'curl']
+        state: present
+
+    - name: Create directory for Docker GPG key
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Download Docker's official GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Add Docker repository to Apt sources
+      shell: |
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+        apt-get update
+
+    - name: Install Docker and related packages
+      apt:
+        name: ['docker-ce', 'docker-ce-cli', 'containerd.io', 'docker-buildx-plugin', 'docker-compose-plugin']
+        state: present
+
+    - name: Test Docker
+      command: docker run hello-world
+    
+- name: Install Milvus
+  hosts: ["milvus"]
+  tags: ["milvus"]
+  connection: ssh
+  remote_user: ubuntu
+  become: yes
+  tasks:
+    - name: Download Milvus standalone script
+      get_url:
+        url: https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh
+        dest: /tmp/standalone_embed.sh
+        mode: '0755'
+
+    - name: Start Milvus standalone
+      command: bash /tmp/standalone_embed.sh start
+
+- name: Deploy benchmark
+  hosts: ["client", "gpu"]
+  tags: ["client", "gpu"]
+  connection: ssh
+  remote_user: ubuntu
+  tasks:
+    - name: Copy scripts folder
+      copy:
+        src: ../scripts/
+        dest: /home/ubuntu/video-stream-indexing/scripts/
+        directory_mode: 0755
+        owner: ubuntu
+    - name: Copy policies folder
+      copy:
+        src: ../policies/
+        dest: /home/ubuntu/video-stream-indexing/policies/
+        directory_mode: 0755
+        owner: ubuntu
+    
+- name: Upload video sample
+  hosts: ["client"]
+  tags: ["client"]
+  connection: ssh
+  remote_user: ubuntu
+  tasks:    
+    - name: Copy video folder
+      copy:
+        src: ../video/
+        dest: /home/ubuntu/video-stream-indexing/video/
+        directory_mode: 0755
+        owner: ubuntu
+
+- name: Create results directory
+  hosts: ["gpu"]
+  tags: ["gpu"]
+  connection: ssh
+  remote_user: ubuntu
+  tasks:    
+    - name: Create results directory
+      file:
+        path: /home/ubuntu/video-stream-indexing/results/
+        state: directory
+        mode: '0755'
+        owner: ubuntu
+    - name: Install nvidia-container-toolkit
+      apt:
+        name: ['nvidia-container-toolkit']
+        state: present
+#  TODO get dataset from S3 bucket
+    - name: Download dataset
+      command: aws s3 cp s3://video-stream-indexing/dataset/ /home/ubuntu/video-stream-indexing/dataset/ --recursive
+
+- name: Pull Docker image
+  hosts: ["client", "gpu"]
+  tags: ["client", "gpu"]
+  connection: ssh
+  remote_user: ubuntu
+  become: yes
+  tasks:
+    - name: Pull Docker image
+      docker_image:
+        name: arnaugabriel/video-indexing:1.0
+        source: pull
+
+    - template:
+        src: "templates/constants.py"
+        dest: "//home/ubuntu/video-stream-indexing/policies/constants.py"
+
+
