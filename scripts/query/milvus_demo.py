@@ -13,11 +13,6 @@ from pymilvus import (
 from PIL import Image
 
 import numpy as np
-import torchvision
-import torch
-from torchvision import transforms
-from torch import nn
-import cv2
 
 import subprocess
 import time
@@ -25,45 +20,12 @@ from collections import defaultdict
 import json
 from datetime import datetime
 
-from policies.constants import (MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE)
+from policies.constants import (MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE,
+                                LOG_PATH, QUERY_ACCURACY)
+from policies.components import get_model, inference
 
 
 latency_dict = {}
-
-
-def inference(model, image, device):
-    """Extract features from an image"""
-    image = cv2.resize(np.array(image), (384, 216))
-    preprocess = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
-    input_batch = preprocess(image).unsqueeze(0)
-    embedding = model(input_batch.to(device))
-    return embedding.cpu()
-
-
-class FeatureResNet(nn.Module):
-    """ResNet model for feature extraction."""
-    def __init__(self, num_features = 4096):
-        super(FeatureResNet, self).__init__()
-        self.resnet = torchvision.models.resnet50(weights="IMAGENET1K_V1")
-
-    def forward(self, x):
-        x = self.resnet.conv1(x)
-        x = self.resnet.bn1(x)
-        x = self.resnet.relu(x)
-        x = self.resnet.maxpool(x)
-
-        x = self.resnet.layer1(x)
-        x = self.resnet.layer2(x)
-        x = self.resnet.layer3(x)
-        x = self.resnet.layer4(x)
-
-        x = self.resnet.avgpool(x)
-        x = x.view(x.size(0), -1)
-
-        return x
 
 
 def search_global(collection_name, embedding, fields, k=4):
@@ -101,7 +63,7 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
     gb_retrieved = 0
     for hits in result:
         for hit in hits:
-            if (hit.distance < 0.9):
+            if (hit.distance < QUERY_ACCURACY):
                 fail_num += 1
                 latency_dict["frame_search_retrieve"].append({
                     "index_search_ms": (search_time - start)*1000,
@@ -138,10 +100,7 @@ def main():
     
     ## Initialize embedding model
     print("Initializing model")
-    model = FeatureResNet()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    model.eval()
+    model, device = get_model()
     start = time.time()
     embeds = inference(model, np.array(img), device)  # Get embeddings
     inference_time = time.time()
@@ -173,7 +132,7 @@ def main():
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    with open(f"/project/results/query_logs_{timestamp}.json", "w") as f:
+    with open(f"{LOG_PATH}/query_logs_{timestamp}.json", "w") as f:
         json.dump(latency_dict, f)
 
     

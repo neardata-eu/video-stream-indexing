@@ -26,7 +26,7 @@ from datetime import datetime
 from policies.components import get_model, inference, do_sampling
 from policies.constants import (PRAVEGA_CONTROLLER, PRAVEGA_SCOPE,
                                 MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE,
-                                DO_LATENCY_LOG, DO_BATCH_LOG)
+                                DO_LATENCY_LOG, DO_BATCH_LOG, LOG_PATH)
 
 ## Gstreamer and Pravega libraries
 import gi # type: ignore
@@ -47,7 +47,7 @@ from pymilvus import (
 ## Setup metric logging file
 if (DO_LATENCY_LOG):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    latency_log = open(f"/project/results/inference_log_{timestamp}.log", "a")
+    latency_log = open(f"{LOG_PATH}/inference_log_{timestamp}.log", "a")
     latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms)\n")
 global_var = {"counter": 0}
 
@@ -252,7 +252,7 @@ def main():
         latency_log.close()
     
     if (DO_BATCH_LOG):
-        batch_log = open(f"/project/results/inference_batch_log_{timestamp}.log", "a")
+        batch_log = open(f"{LOG_PATH}/inference_batch_log_{timestamp}.log", "a")
         batch_log.write("pipeline duration(s),total data(mb),throughput(mbps)\n")
         pipeline_duration = pipeline_finish - pipeline_start
         total_data = global_var["counter"]*global_var["size"][0]*global_var["size"][1]*global_var["size"][2]/1024/1024

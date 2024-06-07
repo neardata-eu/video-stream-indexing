@@ -7,6 +7,9 @@ PRAVEGA_SCOPE = "examples"
 
 DO_LATENCY_LOG = True
 DO_BATCH_LOG = False
+LOG_PATH = "/project/results"
+
+QUERY_ACCURACY = 0.9
 
 if __name__ == "__main__":
     """Print the environment variables for the shell scripts"""
