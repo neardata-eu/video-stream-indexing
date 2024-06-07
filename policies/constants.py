@@ -5,6 +5,9 @@ MILVUS_NAMESPACE = "default"
 PRAVEGA_CONTROLLER = "172.28.1.1:9090"
 PRAVEGA_SCOPE = "examples"
 
+DO_LATENCY_LOG = True
+DO_BATCH_LOG = False
+
 if __name__ == "__main__":
     """Print the environment variables for the shell scripts"""
     print(f"export MILVUS_HOST={MILVUS_HOST}")
