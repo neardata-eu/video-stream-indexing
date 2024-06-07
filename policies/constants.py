@@ -1,14 +1,20 @@
+# Milvus config
 MILVUS_HOST = "localhost"
 MILVUS_PORT = "19530"
 MILVUS_NAMESPACE = "default"
 
+# Pravega config
 PRAVEGA_CONTROLLER = "172.28.1.1:9090"
 PRAVEGA_SCOPE = "examples"
 
+# Inference Logs
 DO_LATENCY_LOG = True
 DO_BATCH_LOG = False
+
+# Path for all logs
 LOG_PATH = "/project/results"
 
+# Query params
 QUERY_ACCURACY = 0.9
 
 if __name__ == "__main__":
