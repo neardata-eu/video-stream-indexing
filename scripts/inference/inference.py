@@ -48,7 +48,7 @@ from pymilvus import (
 if (DO_LATENCY_LOG):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     latency_log = open(f"{LOG_PATH}/inference_log_{timestamp}.log", "a")
-    latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms)\n")
+    latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms),pts timestamp, initial timestamp, embedding timestamp, milvus timestamp\n")
 global_var = {"counter": 0}
 
 
@@ -137,7 +137,11 @@ def set_event_message_meta_probe(pad, info, u_data):
                 latency_log.write(str(global_var["counter"]) + "," +
                                 str(((time_nanosec - (gst_buffer.pts - 37000000000)) / 1000000.)) + "," +
                                 str((inference_time - start_time)*1000) + "," +
-                                str((insert_time - inference_time)*1000) + "\n")
+                                str((insert_time - inference_time)*1000) + "," +
+                                str(gst_buffer.pts - 37000000000) + "," +
+                                str(start_time) + "," +
+                                str(inference_time) + "," +
+                                str(insert_time) + "\n")
     return Gst.PadProbeReturn.OK
 
 
