@@ -1,10 +1,10 @@
 # Milvus config
-MILVUS_HOST = "localhost"
+MILVUS_HOST = "{{ hostvars[groups['milvus'][0]].private_ip }}"
 MILVUS_PORT = "19530"
 MILVUS_NAMESPACE = "default"
 
 # Pravega config
-PRAVEGA_CONTROLLER = "172.28.1.1:9090"
+PRAVEGA_CONTROLLER = "tcp://{{ hostvars[groups['bookkeeper'][0]].private_ip }}:9090"
 PRAVEGA_SCOPE = "examples"
 
 # Inference Logs
