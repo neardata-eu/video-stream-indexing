@@ -28,6 +28,8 @@ from policies.constants import (PRAVEGA_CONTROLLER, PRAVEGA_SCOPE,
                                 MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE,
                                 DO_LATENCY_LOG, DO_BATCH_LOG, LOG_PATH)
 
+sampling_fn = do_sampling()
+
 ## Gstreamer and Pravega libraries
 import gi # type: ignore
 gi.require_version('Gst', '1.0')
@@ -124,10 +126,11 @@ def set_event_message_meta_probe(pad, info, u_data):
             milvus.insert(insert_data)
             
             # If necessary, insert the embedding into the global collection
-            if do_sampling():
+            if sampling_fn():
                 global_milvus = u_data["global_milvus"]
                 insert_data = [embeds, [str(milvus.name)]]
                 global_milvus.insert(insert_data)
+                print("Inserted into global collection")
             insert_time = time.time()
             
             global_var["counter"] += 1  # Update frame counter
