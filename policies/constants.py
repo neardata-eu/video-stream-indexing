@@ -13,6 +13,7 @@ DO_BATCH_LOG = False
 
 # Path for all logs
 LOG_PATH = "/project/results"
+RESULT_PATH = "/project/results"
 
 # Query params
 QUERY_ACCURACY = 0.9

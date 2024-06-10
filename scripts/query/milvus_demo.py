@@ -21,18 +21,49 @@ import json
 from datetime import datetime
 
 from policies.constants import (MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE,
-                                LOG_PATH, QUERY_ACCURACY)
+                                LOG_PATH, QUERY_ACCURACY, RESULT_PATH)
 from policies.components import get_model, inference
 
 
 latency_dict = {}
 
 
+def count_frames(filepath):
+    cmd = [
+        'ffprobe',
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-count_frames',
+        '-show_entries', 'stream=nb_read_frames',
+        '-print_format', 'json',
+        filepath
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    info = json.loads(result.stdout)
+    frame_count = int(info['streams'][0]['nb_read_frames'])
+    return frame_count
+
+
+def process_directory(directory_path):
+    results = []
+    # Listar todos los archivos en el directorio
+    for filename in os.listdir(directory_path):
+        # Comprobar si el archivo tiene la extensión .h264
+        if filename.endswith('.h264'):
+            file_path = os.path.join(directory_path, filename)
+            frame_count = count_frames(file_path)
+            if frame_count is not None:
+                results.append({"filename": filename, "frame_count": frame_count})
+            else:
+                print(f'No se pudo determinar el número de frames para el archivo {filename}')
+    return results
+
+
 def search_global(collection_name, embedding, fields, k=4):
     collection = Collection(collection_name)
     collection.load()
     
-    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k*30, output_fields=fields)
+    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k*100, output_fields=fields)
     
     videos = []
     
@@ -84,7 +115,7 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
                     "pravega_retrieve_ms": (pravega_retrieve-get_bounds)*1000
                 })
                 
-                gb_retrieved += os.path.getsize(f"/project/results/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
+                gb_retrieved += os.path.getsize(f"{RESULT_PATH}/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
     return hit_num, fail_num, gb_retrieved
 
 
@@ -130,6 +161,9 @@ def main():
         gb_retrieved += gb
 
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
+    
+    latency_dict["frame_count"] = process_directory(RESULT_PATH)
+    latency_dict["total_gb_retrieved"] = gb_retrieved
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     with open(f"{LOG_PATH}/query_logs_{timestamp}.json", "w") as f:

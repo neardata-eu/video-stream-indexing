@@ -27,7 +27,8 @@ RUN apt-get install -y --no-install-recommends --option=Dpkg::Options::=--force-
         python3-pip \
         wget \
         libgdk-pixbuf2.0-dev \
-        libgtk-3-dev
+        libgtk-3-dev \
+        ffmpeg
 
 RUN rm -rf /var/lib/apt/lists/*
 
