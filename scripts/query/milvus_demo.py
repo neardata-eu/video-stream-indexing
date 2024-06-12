@@ -19,6 +19,7 @@ import time
 from collections import defaultdict
 import json
 from datetime import datetime
+import argparse
 
 from policies.constants import (MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE,
                                 LOG_PATH, QUERY_ACCURACY, RESULT_PATH)
@@ -119,15 +120,18 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
     return hit_num, fail_num, gb_retrieved
 
 
-def main():   
+def main():
+    parser = argparse.ArgumentParser(description='Pravega inferene job')
+    parser.add_argument('--image_path', default='/project/benchmarks/experiment3/cat_frame_ref.png')
+    args = parser.parse_args()
+    
     ## Connect to Milvus
     print("Connecting to Milvus")
     connections.connect(MILVUS_NAMESPACE, host=MILVUS_HOST, port=MILVUS_PORT)
     client = MilvusClient()
 
     ## Read our query image
-    image_path = "example_frame.png"
-    img = Image.open(image_path)
+    img = Image.open(args.image_path)
     
     ## Initialize embedding model
     print("Initializing model")
