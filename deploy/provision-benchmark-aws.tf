@@ -271,7 +271,7 @@ resource "aws_instance" "metrics" {
 }
 
 resource "aws_instance" "gpu" {
-  ami                    = "${var.ami_client}"
+  ami                    = "${var.ami_gpu}"
   instance_type          = "${var.instance_types["gpu"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -280,7 +280,7 @@ resource "aws_instance" "gpu" {
   iam_instance_profile   = aws_iam_instance_profile.s3_access.name
 
   root_block_device {
-    volume_size = 50  
+    volume_size = 100  
     volume_type = "gp2"
     delete_on_termination = true
   }

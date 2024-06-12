@@ -73,8 +73,14 @@
         dest: /home/ubuntu/video-stream-indexing/policies/
         directory_mode: 0755
         owner: ubuntu
+    - name: Copy benchmarks folder
+      copy:
+        src: ../benchmarks/
+        dest: /home/ubuntu/video-stream-indexing/benchmarks/
+        directory_mode: 0755
+        owner: ubuntu
     
-- name: Upload video sample
+- name: Client specific tasks
   hosts: ["client"]
   tags: ["client"]
   connection: ssh
@@ -82,12 +88,16 @@
   tasks:    
     - name: Copy video folder
       copy:
-        src: ../video/
+        src: ../videos/
         dest: /home/ubuntu/video-stream-indexing/video/
         directory_mode: 0755
         owner: ubuntu
+    # TODO install aws cli
+    #  sudo snap install aws-cli --classic 
+    # - name: Download dataset
+      # command: aws s3 cp s3://video-indexing-data/ /home/ubuntu/video-stream-indexing/videos/ --recursive
 
-- name: Create results directory
+- name: GPU specific tasks
   hosts: ["gpu"]
   tags: ["gpu"]
   connection: ssh
@@ -99,13 +109,13 @@
         state: directory
         mode: '0755'
         owner: ubuntu
-    - name: Install nvidia-container-toolkit
-      apt:
-        name: ['nvidia-container-toolkit']
-        state: present
-#  TODO get dataset from S3 bucket
-    - name: Download dataset
-      command: aws s3 cp s3://video-stream-indexing/dataset/ /home/ubuntu/video-stream-indexing/dataset/ --recursive
+
+    # - name: Install nvidia-container-toolkit
+    #   apt:
+    #     name: ['nvidia-container-toolkit']
+    #     state: present
+
+
 
 - name: Pull Docker image
   hosts: ["client", "gpu"]
@@ -114,13 +124,11 @@
   remote_user: ubuntu
   become: yes
   tasks:
-    - name: Pull Docker image
-      docker_image:
-        name: arnaugabriel/video-indexing:1.0
-        source: pull
+    - name: Pull Docker image using bash command
+      command: docker pull arnaugabriel/video-indexing:1.0
 
     - template:
         src: "templates/constants.py"
-        dest: "//home/ubuntu/video-stream-indexing/policies/constants.py"
+        dest: "/home/ubuntu/video-stream-indexing/policies/constants.py"
 
 

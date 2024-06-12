@@ -154,3 +154,8 @@ videos/*
 !videos/sample.mp4
 results/
 old/
+deploy/.terraform/
+
+*.tfstate
+
+deploy/terraform.tfstate.backup
