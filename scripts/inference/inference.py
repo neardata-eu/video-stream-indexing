@@ -47,8 +47,8 @@ from pymilvus import (
 )
 
 ## Setup metric logging file
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 if (DO_LATENCY_LOG):
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     latency_log = open(f"{LOG_PATH}/inference_log_{timestamp}.log", "a")
     latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms),pts timestamp, initial timestamp, embedding timestamp, milvus timestamp\n")
 global_var = {"counter": 0}

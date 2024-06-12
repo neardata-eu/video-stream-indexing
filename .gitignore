@@ -159,3 +159,5 @@ deploy/.terraform/
 *.tfstate
 
 deploy/terraform.tfstate.backup
+benchmarks/experiment1/reader.py
+benchmarks/experiment1/writer.py
