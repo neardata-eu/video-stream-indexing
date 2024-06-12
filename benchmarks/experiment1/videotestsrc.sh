@@ -11,6 +11,12 @@
 #
 
 set -ex
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <pravega_stream>"
+    exit 1
+fi
+
 ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
@@ -20,22 +26,17 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
 export RUST_BACKTRACE=1
 export TZ=UTC
-PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-172.28.1.1:9090}
-PRAVEGA_STREAM="videotest"
-SIZE_SEC=600
-FPS=25
+PRAVEGA_CONTROLLER_URI="127.0.0.1:9090"
+PRAVEGA_STREAM=$1
+SIZE_SEC=120
+FPS=30
 KEY_FRAME_INTERVAL=$((1*$FPS))
 
 gst-launch-1.0 \
 -v \
 videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) \
-! "video/x-raw,format=YUY2,width=940,height=540,framerate=${FPS}/1" \
+! "video/x-raw,format=RGB,width=800,height=600,framerate=${FPS}/1" \
 ! videoconvert \
-! timeoverlay valignment=bottom "font-desc=Aria 48px" shaded-background=true \
-! clockoverlay "font-desc=Aria 48px" "time-format=%F %T" shaded-background=true \
-! videoconvert \
-! queue \
-! x264enc tune=zerolatency key-int-max=${KEY_FRAME_INTERVAL} \
-! queue \
+! x264enc tune=fastdecode speed-preset=ultrafast key-int-max=${KEY_FRAME_INTERVAL} \
 ! timestampcvt input-timestamp-mode=start-at-current-time \
-! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} allow-create-scope=true seal=true sync=false timestamp-mode=tai
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} allow-create-scope=true seal=true sync=false timestamp-mode=tai buffer-size=1024

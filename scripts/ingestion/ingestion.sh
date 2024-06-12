@@ -37,7 +37,6 @@ filesrc location="${FILESRC_PATH}" \
 ! videoscale \
 ! video/x-raw,width=940,height=560 \
 ! queue \
-! x264enc tune=zerolatency key-int-max=${KEY_FRAME_INTERVAL} \
-! queue \
+! x264enc tune=fastdecode speed-preset=ultrafast key-int-max=${KEY_FRAME_INTERVAL} \
 ! timestampcvt input-timestamp-mode=start-at-current-time \
 ! pravegasink stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER} allow-create-scope=true seal=true sync=false timestamp-mode=tai

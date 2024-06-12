@@ -97,7 +97,7 @@ def set_event_message_meta_probe(pad, info, u_data):
         if not gst_buffer.has_flags(Gst.BufferFlags.DELTA_UNIT) and meta.duration != Gst.CLOCK_TIME_NONE:   
             # Debugging info
             time_nanosec = time.time_ns()
-            logging.info("set_event_message_meta_probe: %s:%s: pts=%23s, dts=%23s, offset=%d, event_head_offset=%d, event_tail_offset=%d, duration=%23s, size=%8d" % (
+            logging.info("set_event_message_meta_probe: %s:%s: pts=%23s, dts=%23s, offset=%d, event_head_offset=%d, event_tail_offset=%d, duration=%23s, size=%8d, e2e latency(ms)=%s" % (
                 pad.get_parent_element().name,
                 pad.name,
                 format_clock_time(gst_buffer.pts),
@@ -106,7 +106,8 @@ def set_event_message_meta_probe(pad, info, u_data):
                 meta.timestamp,
                 meta.duration,
                 format_clock_time(gst_buffer.duration),
-                gst_buffer.get_size()
+                gst_buffer.get_size(),
+                ((time_nanosec - (gst_buffer.pts - 37000000000)) / 1000000.)
             ))
             
             # Fetch the image from buffer
@@ -209,9 +210,10 @@ def main():
 
     pipeline_description = (
         'pravegasrc name=src ! '
-        'decodebin !'
-        'videoconvert !'
-        'video/x-raw,format=RGB ! '
+        'h264parse !'
+        'avdec_h264! '
+        'videoconvert ! '
+        'video/x-raw, format=RGB ! '
         'fakesink name=sink'
     )
     logging.info('Creating pipeline: ' +  pipeline_description)
