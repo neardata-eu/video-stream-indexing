@@ -21,6 +21,7 @@ import logging
 import time
 import traceback
 from datetime import datetime
+import json
 
 ## Import User policies
 from policies.components import get_model, inference, do_sampling
@@ -272,7 +273,13 @@ def main():
 
     milvus_collection.flush()
     milvus_global_collection.flush()
-        
+    
+    config = {
+        "stream": args.stream,
+        "log_path": LOG_PATH,
+    }
+    with open(f"{LOG_PATH}/inference_batch_log_{timestamp}.json", "w") as f:
+        json.dump(config, f)
 
     pipeline.set_state(Gst.State.NULL)
     logging.info('END')
