@@ -5,9 +5,7 @@ FROM ghcr.io/streamstorage/gstreamer:22.04-1.22.6-0.11.1-dev
 
 # Update apt sources and upgrade packages
 RUN sed -i 's/# deb-src/deb-src/g' /etc/apt/sources.list
-RUN apt-get update
-RUN apt-get dist-upgrade -y
-RUN apt-get install -y --no-install-recommends --option=Dpkg::Options::=--force-confdef \
+RUN apt-get update && apt-get dist-upgrade -y && apt-get install -y --no-install-recommends --option=Dpkg::Options::=--force-confdef \
         bison \
         flex \
         g++ \
@@ -38,6 +36,7 @@ RUN pip3 install -r /requirements.txt
 
 # Clone repository
 RUN git clone -b flexible-index https://github.com/pravega/gstreamer-pravega /gstreamer-pravega
+RUN sed -i '173s/.*/\t\t\t\t\tlet now = PravegaTimestamp::now();\n\t\t\t\t\tClockTime::from_nseconds(now.nanoseconds().unwrap())/' /gstreamer-pravega/gst-plugin-pravega/src/timestampcvt/imp.rs
 
 # Install Rustup
 RUN rustup component add rustfmt
