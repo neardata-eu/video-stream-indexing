@@ -15,9 +15,6 @@ DO_BATCH_LOG = False
 LOG_PATH = "/project/results"
 RESULT_PATH = "/project/results"
 
-# Query params
-QUERY_ACCURACY = 0.9
-
 if __name__ == "__main__":
     """Print the environment variables for the shell scripts"""
     print(f"export MILVUS_HOST={MILVUS_HOST}")

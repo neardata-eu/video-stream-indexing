@@ -22,7 +22,7 @@ from datetime import datetime
 import argparse
 
 from policies.constants import (MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE,
-                                LOG_PATH, QUERY_ACCURACY, RESULT_PATH)
+                                LOG_PATH, RESULT_PATH)
 from policies.components import get_model, inference
 
 
@@ -47,20 +47,18 @@ def count_frames(filepath):
 
 def process_directory(directory_path):
     results = []
-    # Listar todos los archivos en el directorio
     for filename in os.listdir(directory_path):
-        # Comprobar si el archivo tiene la extensión .h264
         if filename.endswith('.h264'):
             file_path = os.path.join(directory_path, filename)
             frame_count = count_frames(file_path)
             if frame_count is not None:
                 results.append({"filename": filename, "frame_count": frame_count})
             else:
-                print(f'No se pudo determinar el número de frames para el archivo {filename}')
+                raise Exception(f'Error counting frames in file {filename}')
     return results
 
 
-def search_global(collection_name, embedding, fields, k=4):
+def search_global(collection_name, embedding, fields, k):
     collection = Collection(collection_name)
     collection.load()
     
@@ -82,7 +80,7 @@ def search_global(collection_name, embedding, fields, k=4):
     return [item[0] for item in sorted_data[:k]]
 
 
-def search(milvus_client, collection_name, embedding, fields, k=1):
+def search(milvus_client, collection_name, embedding, fields, k, accuracy):
     collection = Collection(collection_name)
     collection.load()
     
@@ -95,7 +93,7 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
     gb_retrieved = 0
     for hits in result:
         for hit in hits:
-            if (hit.distance < QUERY_ACCURACY):
+            if (hit.distance < accuracy):
                 fail_num += 1
                 latency_dict["frame_search_retrieve"].append({
                     "index_search_ms": (search_time - start)*1000,
@@ -121,8 +119,10 @@ def search(milvus_client, collection_name, embedding, fields, k=1):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Pravega inferene job')
+    parser = argparse.ArgumentParser(description='Milvus Query Demo')
     parser.add_argument('--image_path', default='/project/benchmarks/experiment3/cat_frame_ref.png')
+    parser.add_argument('--global_k', default=5)
+    parser.add_argument('--accuracy', default=0.9)
     args = parser.parse_args()
     
     ## Connect to Milvus
@@ -131,6 +131,7 @@ def main():
     client = MilvusClient()
 
     ## Read our query image
+    latency_dict["image_path"] = args.image_path
     img = Image.open(args.image_path)
     
     ## Initialize embedding model
@@ -142,12 +143,13 @@ def main():
     latency_dict["inference_ms"] = (inference_time - start)*1000
 
     ## Search global index
-    candidates = search_global("global", embeds.detach().numpy(), ["collection"])
+    candidates = search_global("global", embeds.detach().numpy(), ["collection"], int(args.global_k))
     global_search = time.time()
     latency_dict["search_global_ms"] = (global_search - inference_time)*1000
     
     print("Candidates found:")
     print(candidates)
+    latency_dict["candidates"] = candidates
 
     ## Perform queries
     print("Performing search")
@@ -159,7 +161,7 @@ def main():
     latency_dict["frame_search_retrieve"] = []
     for collection_name in candidates: # Search in the candidate collections
         output_fields=["offset", "pk"]
-        hit, fail, gb = search(client, collection_name, embeds.detach().numpy(), output_fields)
+        hit, fail, gb = search(client, collection_name, embeds.detach().numpy(), output_fields, 1, float(args.accuracy))
         hit_num += hit
         fail_num += fail
         gb_retrieved += gb
@@ -168,6 +170,15 @@ def main():
     
     latency_dict["frame_count"] = process_directory(RESULT_PATH)
     latency_dict["total_gb_retrieved"] = gb_retrieved
+    
+    config = {
+        "image_path": args.image_path,
+        "global_k": args.global_k,
+        "accuracy": args.accuracy,
+        "log_path": LOG_PATH,
+        "result_path": RESULT_PATH,
+    }
+    latency_dict["config"] = config
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     with open(f"{LOG_PATH}/query_logs_{timestamp}.json", "w") as f:
