@@ -41,7 +41,7 @@ RUN sed -i '173s/.*/\t\t\t\t\tlet now = PravegaTimestamp::now();\n\t\t\t\t\tCloc
 # Install Rustup
 RUN rustup component add rustfmt
 
-# Cargo builds
+# Compile Gstreamer-Pravega
 ENV ROOT_DIR=/gstreamer-pravega
 WORKDIR ${ROOT_DIR}/gst-plugin-pravega
 RUN cargo build
