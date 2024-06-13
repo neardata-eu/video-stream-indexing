@@ -201,7 +201,8 @@ def main():
     logging.info('args=%s' % str(args))
     
     log_path = args.log_path
-    os.makedirs(log_path, exist_ok=True)   
+    os.makedirs(log_path, exist_ok=True)  
+    global latency_log 
     if (DO_LATENCY_LOG):
         latency_log = open(f"{log_path}/inference_log_{timestamp}.log", "a")
         latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms),pts timestamp, initial timestamp, embedding timestamp, milvus timestamp\n")
@@ -217,7 +218,7 @@ def main():
     pipeline_description = (
         'pravegasrc name=src ! '
         'h264parse !'
-        'avdec_h264! '
+        'avdec_h264 max_threads=1 ! '
         'videoconvert ! '
         'video/x-raw, format=RGB ! '
         'fakesink name=sink'
