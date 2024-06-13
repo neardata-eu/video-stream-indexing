@@ -128,7 +128,7 @@ def main():
     ## Connect to Milvus
     print("Connecting to Milvus")
     connections.connect(MILVUS_NAMESPACE, host=MILVUS_HOST, port=MILVUS_PORT)
-    client = MilvusClient()
+    client = MilvusClient(uri=f"http://{MILVUS_HOST}:{MILVUS_PORT}")
 
     ## Read our query image
     latency_dict["image_path"] = args.image_path

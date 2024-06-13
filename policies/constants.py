@@ -22,3 +22,5 @@ if __name__ == "__main__":
     print(f"export MILVUS_NAMESPACE={MILVUS_NAMESPACE}")
     print(f"export PRAVEGA_CONTROLLER={PRAVEGA_CONTROLLER}")
     print(f"export PRAVEGA_SCOPE={PRAVEGA_SCOPE}")
+    print(f"export LOG_PATH={LOG_PATH}")
+    print(f"export RESULT_PATH={RESULT_PATH}")
