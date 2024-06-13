@@ -17,16 +17,13 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
+eval "$(python3 /project/policies/constants.py)"
 ROOT_DIR=/gstreamer-pravega
 pushd ${ROOT_DIR}/gst-plugin-pravega
-cargo build
-ls -lh ${ROOT_DIR}/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
-# log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
 export RUST_BACKTRACE=1
 export TZ=UTC
-PRAVEGA_CONTROLLER_URI="127.0.0.1:9090"
 PRAVEGA_STREAM=$1
 SIZE_SEC=120
 FPS=30
@@ -39,4 +36,4 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! videoconvert \
 ! x264enc tune=fastdecode speed-preset=ultrafast key-int-max=${KEY_FRAME_INTERVAL} \
 ! timestampcvt input-timestamp-mode=start-at-current-time \
-! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} allow-create-scope=true seal=true sync=false timestamp-mode=tai buffer-size=1024
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER} allow-create-scope=true seal=true sync=false timestamp-mode=tai buffer-size=1024
