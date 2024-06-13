@@ -27,7 +27,7 @@ import json
 from policies.components import get_model, inference, do_sampling
 from policies.constants import (PRAVEGA_CONTROLLER, PRAVEGA_SCOPE,
                                 MILVUS_HOST, MILVUS_PORT, MILVUS_NAMESPACE,
-                                DO_LATENCY_LOG, DO_BATCH_LOG, LOG_PATH)
+                                DO_LATENCY_LOG, LOG_PATH)
 
 sampling_fn = do_sampling()
 
@@ -49,9 +49,7 @@ from pymilvus import (
 
 ## Setup metric logging file
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-if (DO_LATENCY_LOG):
-    latency_log = open(f"{LOG_PATH}/inference_log_{timestamp}.log", "a")
-    latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms),pts timestamp, initial timestamp, embedding timestamp, milvus timestamp\n")
+latency_log = None
 global_var = {"counter": 0}
 
 
@@ -196,10 +194,21 @@ def main():
     parser = argparse.ArgumentParser(description='Pravega inferene job')
     parser.add_argument('--log_level', type=int, default=logging.INFO, help='10=DEBUG,20=INFO')
     parser.add_argument('--stream', default='urv6')
+    parser.add_argument('--log_path', default='None')
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
     logging.info('args=%s' % str(args))
+    
+    if (args.log_path == 'None'):
+        log_path = LOG_PATH
+    else:
+        log_path = args.log_path
+    os.makedirs(log_path, exist_ok=True)
+        
+    if (DO_LATENCY_LOG):
+        latency_log = open(f"{log_path}/inference_log_{timestamp}.log", "a")
+        latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms),pts timestamp, initial timestamp, embedding timestamp, milvus timestamp\n")
 
     # Set GStreamer log level.
     # if not 'GST_DEBUG' in os.environ:
@@ -261,25 +270,23 @@ def main():
     if (DO_LATENCY_LOG):
         latency_log.close()
     
-    if (DO_BATCH_LOG):
-        batch_log = open(f"{LOG_PATH}/inference_batch_log_{timestamp}.log", "a")
-        batch_log.write("pipeline duration(s),total data(mb),throughput(mbps)\n")
-        pipeline_duration = pipeline_finish - pipeline_start
-        total_data = global_var["counter"]*global_var["size"][0]*global_var["size"][1]*global_var["size"][2]/1024/1024
-        batch_log.write(str(pipeline_duration) + "," + 
-                        str(total_data) + "," + 
-                        str(total_data/pipeline_duration) + "\n")
-        batch_log.close()
-
-    milvus_collection.flush()
-    milvus_global_collection.flush()
-    
+    pipeline_duration = pipeline_finish - pipeline_start
+    total_data = global_var["counter"]*global_var["size"][0]*global_var["size"][1]*global_var["size"][2]/1024/1024
     config = {
         "stream": args.stream,
-        "log_path": LOG_PATH,
+        "log_path": log_path,
+        "frame_res": global_var["size"],
+        "frame_size_mb": global_var["size"][0]*global_var["size"][1]*global_var["size"][2]/1024/1024,
+        "total_frames": global_var["counter"],
+        "pipeline_duration_s": pipeline_duration,
+        "total_data_mb": total_data,
+        "throughput_mbps": total_data/pipeline_duration,
     }
-    with open(f"{LOG_PATH}/inference_batch_log_{timestamp}.json", "w") as f:
+    with open(f"{log_path}/inference_log_config_{timestamp}.json", "w") as f:
         json.dump(config, f)
+        
+    milvus_collection.flush()
+    milvus_global_collection.flush()
 
     pipeline.set_state(Gst.State.NULL)
     logging.info('END')

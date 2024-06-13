@@ -9,7 +9,6 @@ PRAVEGA_SCOPE = "examples"
 
 # Inference Logs
 DO_LATENCY_LOG = True
-DO_BATCH_LOG = False
 
 # Path for all logs
 LOG_PATH = "/project/results"
