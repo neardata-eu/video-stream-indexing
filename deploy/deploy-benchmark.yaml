@@ -49,11 +49,11 @@
     - name: Download Milvus standalone script
       get_url:
         url: https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh
-        dest: /tmp/standalone_embed.sh
+        dest: /home/ubuntu/standalone_embed.sh
         mode: '0755'
 
     - name: Start Milvus standalone
-      command: bash /tmp/standalone_embed.sh start
+      command: bash /home/ubuntu/standalone_embed.sh start
 
 - name: Deploy benchmark
   hosts: ["client", "gpu"]
@@ -89,11 +89,13 @@
     - name: Copy video folder
       copy:
         src: ../videos/
-        dest: /home/ubuntu/video-stream-indexing/video/
+        dest: /home/ubuntu/video-stream-indexing/videos/
         directory_mode: 0755
         owner: ubuntu
-    # TODO install aws cli
-    #  sudo snap install aws-cli --classic 
+    - name: Install AWS CLI
+      become: yes
+      command: snap install aws-cli --classic
+
     # - name: Download dataset
       # command: aws s3 cp s3://video-indexing-data/ /home/ubuntu/video-stream-indexing/videos/ --recursive
 
@@ -110,10 +112,6 @@
         mode: '0755'
         owner: ubuntu
 
-    # - name: Install nvidia-container-toolkit
-    #   apt:
-    #     name: ['nvidia-container-toolkit']
-    #     state: present
 
 
 
@@ -125,7 +123,7 @@
   become: yes
   tasks:
     - name: Pull Docker image using bash command
-      command: docker pull arnaugabriel/video-indexing:1.0
+      command: docker pull arnaugabriel/video-indexing:2.0
 
     - template:
         src: "templates/constants.py"
