@@ -194,18 +194,14 @@ def main():
     parser = argparse.ArgumentParser(description='Pravega inferene job')
     parser.add_argument('--log_level', type=int, default=logging.INFO, help='10=DEBUG,20=INFO')
     parser.add_argument('--stream', default='urv6')
-    parser.add_argument('--log_path', default='None')
+    parser.add_argument('--log_path', default=LOG_PATH)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
     logging.info('args=%s' % str(args))
     
-    if (args.log_path == 'None'):
-        log_path = LOG_PATH
-    else:
-        log_path = args.log_path
-    os.makedirs(log_path, exist_ok=True)
-        
+    log_path = args.log_path
+    os.makedirs(log_path, exist_ok=True)   
     if (DO_LATENCY_LOG):
         latency_log = open(f"{log_path}/inference_log_{timestamp}.log", "a")
         latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms),pts timestamp, initial timestamp, embedding timestamp, milvus timestamp\n")

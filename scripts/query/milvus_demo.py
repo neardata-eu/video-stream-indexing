@@ -80,7 +80,7 @@ def search_global(collection_name, embedding, fields, k):
     return [item[0] for item in sorted_data[:k]]
 
 
-def search(milvus_client, collection_name, embedding, fields, k, accuracy):
+def search(milvus_client, collection_name, embedding, fields, k, accuracy, result_path):
     collection = Collection(collection_name)
     collection.load()
     
@@ -114,7 +114,7 @@ def search(milvus_client, collection_name, embedding, fields, k, accuracy):
                     "pravega_retrieve_ms": (pravega_retrieve-get_bounds)*1000
                 })
                 
-                gb_retrieved += os.path.getsize(f"{RESULT_PATH}/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
+                gb_retrieved += os.path.getsize(f"{result_path}/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
     return hit_num, fail_num, gb_retrieved
 
 
@@ -123,7 +123,14 @@ def main():
     parser.add_argument('--image_path', default='/project/benchmarks/experiment3/cat_frame_ref.png')
     parser.add_argument('--global_k', default=5)
     parser.add_argument('--accuracy', default=0.9)
+    parser.add_argument('--log_path', default=LOG_PATH)
+    parser.add_argument('--result_path', default=RESULT_PATH)
     args = parser.parse_args()
+    
+    log_path = args.log_path
+    result_path = args.result_path
+    os.makedirs(log_path, exist_ok=True)
+    os.makedirs(result_path, exist_ok=True)
     
     ## Connect to Milvus
     print("Connecting to Milvus")
@@ -161,27 +168,27 @@ def main():
     latency_dict["frame_search_retrieve"] = []
     for collection_name in candidates: # Search in the candidate collections
         output_fields=["offset", "pk"]
-        hit, fail, gb = search(client, collection_name, embeds.detach().numpy(), output_fields, 1, float(args.accuracy))
+        hit, fail, gb = search(client, collection_name, embeds.detach().numpy(), output_fields, 1, float(args.accuracy), result_path)
         hit_num += hit
         fail_num += fail
         gb_retrieved += gb
 
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
     
-    latency_dict["frame_count"] = process_directory(RESULT_PATH)
+    latency_dict["frame_count"] = process_directory(result_path)
     latency_dict["total_gb_retrieved"] = gb_retrieved
     
     config = {
         "image_path": args.image_path,
         "global_k": args.global_k,
         "accuracy": args.accuracy,
-        "log_path": LOG_PATH,
-        "result_path": RESULT_PATH,
+        "log_path": log_path,
+        "result_path": result_path,
     }
     latency_dict["config"] = config
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    with open(f"{LOG_PATH}/query_logs_{timestamp}.json", "w") as f:
+    with open(f"{log_path}/query_logs_{timestamp}.json", "w") as f:
         json.dump(latency_dict, f)
 
     
