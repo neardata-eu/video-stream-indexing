@@ -44,7 +44,7 @@ docker run -p 8000:3000 -e MILVUS_URL=172.17.0.1:19530 zilliz/attu:v2.3.10
 Setup docker container. Ideally, start one to perform the Video Ingestion and another one to perform the Inference+Indexing. It is also recommended to add gpu to the Inference container via ```--gpus all```:
 ```
 xhost +
-docker run -it -v /{path-to-repo}/video-stream-indexing/:/project --net=host --env="DISPLAY" --volume="$HOME/.Xauthority:/root/.Xauthority:rw" arnaugabriel/video-indexing:1.0 bash
+docker run -it -v /{path-to-repo}/video-stream-indexing/:/project --net=host --env="DISPLAY" --volume="$HOME/.Xauthority:/root/.Xauthority:rw" arnaugabriel/video-indexing:2.0 bash
 ```
 
 ### 2) Video Ingestion

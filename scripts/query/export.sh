@@ -32,4 +32,4 @@ cargo run --bin pravega_stream_exporter -- \
 --stream ${PRAVEGA_STREAM} \
 --begin-offset ${BEGIN_OFFSET} \
 --end-offset ${END_OFFSET} \
---file-path ${RESULT_PATH}/${FILE_NAME}
+--file-path ${FILE_NAME}

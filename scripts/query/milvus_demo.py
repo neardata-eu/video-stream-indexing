@@ -45,17 +45,17 @@ def count_frames(filepath):
     return frame_count
 
 
-def process_directory(directory_path):
+def process_files(filenames, result_path):
     results = []
-    for filename in os.listdir(directory_path):
-        if filename.endswith('.h264'):
-            file_path = os.path.join(directory_path, filename)
-            frame_count = count_frames(file_path)
+    for filename in filenames:
+        if filename is not None:
+            frame_count = count_frames(f"{result_path}/{filename}")
             if frame_count is not None:
                 results.append({"filename": filename, "frame_count": frame_count})
             else:
                 raise Exception(f'Error counting frames in file {filename}')
     return results
+
 
 
 def search_global(collection_name, embedding, fields, k):
@@ -91,6 +91,7 @@ def search(milvus_client, collection_name, embedding, fields, k, accuracy, resul
     hit_num = 0
     fail_num = 0
     gb_retrieved = 0
+    fragment = None
     for hits in result:
         for hit in hits:
             if (hit.distance < accuracy):
@@ -106,6 +107,7 @@ def search(milvus_client, collection_name, embedding, fields, k, accuracy, resul
                 
                 env = os.environ.copy()
                 subprocess.run(['bash', '/project/scripts/query/export.sh', collection_name, f"{result_path}/{collection_name}_{hit.pk}.h264", bounds[0]["offset"], bounds[1]["offset"]], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                fragment = f"{collection_name}_{hit.pk}.h264"
                 hit_num += 1
                 
                 pravega_retrieve = time.time()
@@ -115,12 +117,12 @@ def search(milvus_client, collection_name, embedding, fields, k, accuracy, resul
                 })
                 
                 gb_retrieved += os.path.getsize(f"{result_path}/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
-    return hit_num, fail_num, gb_retrieved
+    return hit_num, fail_num, gb_retrieved, fragment
 
 
 def main():
     parser = argparse.ArgumentParser(description='Milvus Query Demo')
-    parser.add_argument('--image_path', default='/project/benchmarks/experiment3/cat_frame_ref.png')
+    parser.add_argument('--image_path', default='/project/benchmarks/experiment3/cholec_frame_ref.png')
     parser.add_argument('--global_k', default=5)
     parser.add_argument('--accuracy', default=0.9)
     parser.add_argument('--log_path', default=LOG_PATH)
@@ -140,6 +142,8 @@ def main():
     ## Read our query image
     latency_dict["image_path"] = args.image_path
     img = Image.open(args.image_path)
+    if img.mode == 'RGBA':
+        img = img.convert('RGB')
     
     ## Initialize embedding model
     print("Initializing model")
@@ -163,19 +167,21 @@ def main():
     hit_num = 0
     fail_num = 0
     gb_retrieved = 0
+    fragments = []
     
     #collection_list = utility.list_collections()
     latency_dict["frame_search_retrieve"] = []
     for collection_name in candidates: # Search in the candidate collections
         output_fields=["offset", "pk"]
-        hit, fail, gb = search(client, collection_name, embeds.detach().numpy(), output_fields, 1, float(args.accuracy), result_path)
+        hit, fail, gb, fragment = search(client, collection_name, embeds.detach().numpy(), output_fields, 1, float(args.accuracy), result_path)
         hit_num += hit
         fail_num += fail
         gb_retrieved += gb
+        fragments.append(fragment)
 
     print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
     
-    latency_dict["frame_count"] = process_directory(result_path)
+    latency_dict["frame_count"] = process_files(fragments, result_path)
     latency_dict["total_gb_retrieved"] = gb_retrieved
     
     config = {
