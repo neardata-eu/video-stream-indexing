@@ -11,8 +11,8 @@ PRAVEGA_SCOPE = "examples"
 DO_LATENCY_LOG = True
 
 # Path for all logs
-LOG_PATH = "/project/results"
-RESULT_PATH = "/project/results"
+LOG_PATH = "/project/logs"
+RESULT_PATH = "/project/video_fragments"
 
 if __name__ == "__main__":
     """Print the environment variables for the shell scripts"""

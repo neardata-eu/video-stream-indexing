@@ -34,6 +34,6 @@ gst-launch-1.0 \
 videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) \
 ! "video/x-raw,format=RGB,width=800,height=600,framerate=${FPS}/1" \
 ! videoconvert \
-! x264enc tune=fastdecode speed-preset=ultrafast key-int-max=${KEY_FRAME_INTERVAL} \
+! x264enc tune=zerolatency speed-preset=ultrafast key-int-max=${KEY_FRAME_INTERVAL} \
 ! timestampcvt input-timestamp-mode=start-at-current-time \
 ! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER} allow-create-scope=true seal=true sync=false timestamp-mode=tai buffer-size=1024

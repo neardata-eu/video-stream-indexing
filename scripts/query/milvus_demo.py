@@ -80,50 +80,77 @@ def search_global(collection_name, embedding, fields, k):
     return [item[0] for item in sorted_data[:k]]
 
 
-def search(milvus_client, collection_name, embedding, fields, k, accuracy, result_path):
+def generate_fragments(frames, fragment_offset=5, similarity=0.9):
+    """
+    Generate fragments from a list of frames
+    :param frames: a list of frames with the format (frame_number, similarity)
+    :param fragment_offset: a number of frames to consider before and after the frame
+    :param similarity: a threshold to consider a frame as a key frame
+    :return: a list of tuples with the start and end of the fragments
+    """
+    
+    # Remove frames with similarity below the threshold
+    frames = [frame for frame in frames if frame[1] >= similarity]
+    
+    # Generate intervals around the frames
+    intervals = [(frame[0] - fragment_offset, frame[0] + fragment_offset) for frame in frames]
+
+    # Check if the intervals overlap and merge them
+    merged_intervals = []
+    for start, end in sorted(intervals):
+        if merged_intervals and start <= merged_intervals[-1][1]:
+            merged_intervals[-1] = (merged_intervals[-1][0], max(merged_intervals[-1][1], end))
+        else:
+            merged_intervals.append((start, end))
+
+    return merged_intervals
+
+
+def search(milvus_client, collection_name, embedding, fields, local_k, fragment_offset, accuracy, result_path):
     collection = Collection(collection_name)
     collection.load()
     
     start = time.time()
-    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k, output_fields=fields)
-    search_time = time.time()
+    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=local_k, output_fields=fields)
     
-    hit_num = 0
-    fail_num = 0
-    gb_retrieved = 0
-    fragment = None
+    frames = []
     for hits in result:
         for hit in hits:
-            if (hit.distance < accuracy):
-                fail_num += 1
-                latency_dict["frame_search_retrieve"].append({
-                    "index_search_ms": (search_time - start)*1000,
-                    "pravega_retrieve_ms": 0
-                })
-            else:
-                print(f"Processing hit {hit.pk} with distance {hit.distance}")
-                bounds = milvus_client.get(collection_name=collection_name, ids=[int(hit.pk)-20, int(hit.pk)+20], output_fields=["offset"])
-                get_bounds = time.time()
-                
-                env = os.environ.copy()
-                subprocess.run(['bash', '/project/scripts/query/export.sh', collection_name, f"{result_path}/{collection_name}_{hit.pk}.h264", bounds[0]["offset"], bounds[1]["offset"]], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                fragment = f"{collection_name}_{hit.pk}.h264"
-                hit_num += 1
-                
-                pravega_retrieve = time.time()
-                latency_dict["frame_search_retrieve"].append({
-                    "index_search_ms": (get_bounds - start)*1000,
-                    "pravega_retrieve_ms": (pravega_retrieve-get_bounds)*1000
-                })
-                
-                gb_retrieved += os.path.getsize(f"{result_path}/{collection_name}_{hit.pk}.h264") / (1024 ** 3)
-    return hit_num, fail_num, gb_retrieved, fragment
+            frames.append((hit.pk, hit.distance))
+    merged_intervals = generate_fragments(frames, fragment_offset, accuracy)
+    
+    offsets = []
+    for interval in merged_intervals:
+        bounds = milvus_client.get(collection_name=collection_name, ids=[interval[0], interval[1]], output_fields=["offset"])
+        offsets.append((bounds[0]["offset"], bounds[1]["offset"]))
+    search_time = time.time()
+    
+    env = os.environ.copy()
+    gb_retrieved = 0
+    files = []
+    for idx, (off_start, off_end) in enumerate(offsets):
+        filename = f"{collection_name}_{idx}_{off_start}_{off_end}.h264"
+        subprocess.run(['bash', '/project/scripts/query/export.sh', collection_name, f"{result_path}/{filename}", off_start, off_end], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        files.append(filename)
+        gb_retrieved += os.path.getsize(f"{result_path}/{filename}") / (1024 ** 3)
+    export_time = time.time()
+    
+    latency_dict["frame_search_retrieve"].append({
+        "collection": collection_name,
+        "search_ms": (search_time - start)*1000,
+        "export_ms": (export_time - search_time)*1000,
+        "fragments": files
+    })
+    
+    return files, gb_retrieved
 
 
 def main():
     parser = argparse.ArgumentParser(description='Milvus Query Demo')
     parser.add_argument('--image_path', default='/project/benchmarks/experiment3/cholec_frame_ref.png')
     parser.add_argument('--global_k', default=5)
+    parser.add_argument('--local_k', default=100)
+    parser.add_argument('--fragment_offset', default=10)
     parser.add_argument('--accuracy', default=0.9)
     parser.add_argument('--log_path', default=LOG_PATH)
     parser.add_argument('--result_path', default=RESULT_PATH)
@@ -164,22 +191,15 @@ def main():
 
     ## Perform queries
     print("Performing search")
-    hit_num = 0
-    fail_num = 0
-    gb_retrieved = 0
     fragments = []
     
     #collection_list = utility.list_collections()
     latency_dict["frame_search_retrieve"] = []
+    gb_retrieved = 0
     for collection_name in candidates: # Search in the candidate collections
         output_fields=["offset", "pk"]
-        hit, fail, gb, fragment = search(client, collection_name, embeds.detach().numpy(), output_fields, 1, float(args.accuracy), result_path)
-        hit_num += hit
-        fail_num += fail
-        gb_retrieved += gb
-        fragments.append(fragment)
-
-    print(f"Number of coincidences found in the database: {hit_num}/{hit_num+fail_num}")
+        fragment, gb_retrieved = search(client, collection_name, embeds.detach().numpy(), output_fields, int(args.local_k), int(args.fragment_offset), float(args.accuracy), result_path)
+        fragments.extend(fragment)
     
     latency_dict["frame_count"] = process_files(fragments, result_path)
     latency_dict["total_gb_retrieved"] = gb_retrieved
@@ -187,6 +207,8 @@ def main():
     config = {
         "image_path": args.image_path,
         "global_k": args.global_k,
+        "local_k": args.local_k,
+        "fragment_offset": args.fragment_offset,
         "accuracy": args.accuracy,
         "log_path": log_path,
         "result_path": result_path,
