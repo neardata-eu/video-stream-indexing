@@ -12,13 +12,12 @@
 
 set -ex
 
-if [ $# -ne 3 ]; then
-    echo "Usage: $0 <video_path> <pravega_stream> <fps>"
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <pravega_stream> <fps>"
     exit 1
 fi
-FILESRC_PATH="$1"
-PRAVEGA_STREAM="$2"
-FPS="$3"
+PRAVEGA_STREAM="$1"
+FPS="$2"
 
 eval "$(python3 /project/policies/constants.py)"
 ROOT_DIR=/gstreamer-pravega
@@ -28,6 +27,7 @@ export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
 export RUST_BACKTRACE=1
 export TZ=UTC
 KEY_FRAME_INTERVAL=$((1*$FPS))
+SIZE_SEC=120
 
 gst-launch-1.0 \
 -v \
