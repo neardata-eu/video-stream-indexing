@@ -9,14 +9,10 @@ PRAVEGA_SCOPE = "examples"
 
 # Inference Logs
 DO_LATENCY_LOG = True
-DO_BATCH_LOG = False
 
 # Path for all logs
-LOG_PATH = "/project/results"
-RESULT_PATH = "/project/results"
-
-# Query params
-QUERY_ACCURACY = 0.9
+LOG_PATH = "/project/logs"
+RESULT_PATH = "/project/video_fragments"
 
 if __name__ == "__main__":
     """Print the environment variables for the shell scripts"""
@@ -25,3 +21,5 @@ if __name__ == "__main__":
     print(f"export MILVUS_NAMESPACE={MILVUS_NAMESPACE}")
     print(f"export PRAVEGA_CONTROLLER={PRAVEGA_CONTROLLER}")
     print(f"export PRAVEGA_SCOPE={PRAVEGA_SCOPE}")
+    print(f"export LOG_PATH={LOG_PATH}")
+    print(f"export RESULT_PATH={RESULT_PATH}")
