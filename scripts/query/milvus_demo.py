@@ -134,23 +134,26 @@ def search(milvus_client, collection_name, embedding, fields, local_k, fragment_
     
     print(f"Exporting fragments from {collection_name}")
     env = os.environ.copy()
-    gb_retrieved = 0
+    total_gb_retrieved = 0
     files = []
+    files_and_gbs = []
     for idx, (off_start, off_end) in enumerate(offsets):
         filename = f"{collection_name}_{idx}_{off_start}_{off_end}.h264"
         subprocess.run(['bash', '/project/scripts/query/export.sh', collection_name, f"{result_path}/{filename}", off_start, off_end], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         files.append(filename)
-        gb_retrieved += os.path.getsize(f"{result_path}/{filename}") / (1024 ** 3)
+        gb_retrieved = os.path.getsize(f"{result_path}/{filename}") / (1024 ** 3)
+        total_gb_retrieved += gb_retrieved
+        files_and_gbs.append((filename, gb_retrieved))
     export_time = time.time()
     
     latency_dict["frame_search_retrieve"].append({
         "collection": collection_name,
         "search_ms": (search_time - start_time)*1000,
         "export_ms": (export_time - search_time)*1000,
-        "fragments": files
+        "fragments_and_gbs": files_and_gbs
     })
     
-    return files, gb_retrieved
+    return files, total_gb_retrieved
 
 
 def main():
