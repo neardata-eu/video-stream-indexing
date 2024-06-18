@@ -110,7 +110,8 @@ def search(milvus_client, collection_name, embedding, fields, local_k, fragment_
     collection = Collection(collection_name)
     collection.load()
     
-    start = time.time()
+    print(f"Searching in {collection_name}")
+    start_time = time.time()
     result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=local_k, output_fields=fields)
     
     frames = []
@@ -120,11 +121,18 @@ def search(milvus_client, collection_name, embedding, fields, local_k, fragment_
     merged_intervals = generate_fragments(frames, fragment_offset, accuracy)
     
     offsets = []
-    for interval in merged_intervals:
-        bounds = milvus_client.get(collection_name=collection_name, ids=[interval[0], interval[1]], output_fields=["offset"])
-        offsets.append((bounds[0]["offset"], bounds[1]["offset"]))
+    for (start, end) in merged_intervals:
+        offsets.append(max(start, 0))
+        offsets.append(min(end, int(collection.num_entities)-1))
+    bounds = milvus_client.get(collection_name=collection_name, ids=offsets, output_fields=["offset"])
+    
+    offset_dict = list(zip(bounds[::2], bounds[1::2]))
+    offsets = []
+    for (start, end) in offset_dict:
+        offsets.append((start["offset"], end["offset"]))
     search_time = time.time()
     
+    print(f"Exporting fragments from {collection_name}")
     env = os.environ.copy()
     gb_retrieved = 0
     files = []
@@ -137,7 +145,7 @@ def search(milvus_client, collection_name, embedding, fields, local_k, fragment_
     
     latency_dict["frame_search_retrieve"].append({
         "collection": collection_name,
-        "search_ms": (search_time - start)*1000,
+        "search_ms": (search_time - start_time)*1000,
         "export_ms": (export_time - search_time)*1000,
         "fragments": files
     })
