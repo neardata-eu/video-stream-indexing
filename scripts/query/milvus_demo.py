@@ -195,14 +195,15 @@ def main():
     
     #collection_list = utility.list_collections()
     latency_dict["frame_search_retrieve"] = []
-    gb_retrieved = 0
+    gb_retrieved_total = 0
     for collection_name in candidates: # Search in the candidate collections
         output_fields=["offset", "pk"]
         fragment, gb_retrieved = search(client, collection_name, embeds.detach().numpy(), output_fields, int(args.local_k), int(args.fragment_offset), float(args.accuracy), result_path)
         fragments.extend(fragment)
+        gb_retrieved_total += gb_retrieved
     
     latency_dict["frame_count"] = process_files(fragments, result_path)
-    latency_dict["total_gb_retrieved"] = gb_retrieved
+    latency_dict["total_gb_retrieved"] = gb_retrieved_total
     
     config = {
         "image_path": args.image_path,
