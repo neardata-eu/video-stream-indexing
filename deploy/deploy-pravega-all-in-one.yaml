@@ -13,7 +13,7 @@
 #
 
 - name: Get common facts
-  hosts: ["bookkeeper"]
+  hosts: ["bookkeeper", "metrics"]
   tags: ["always"]
   connection: ssh
   become: true
@@ -24,13 +24,13 @@
         pravegaVersion: "{{ pravegaVersion }}"
         zookeeperVersion: "{{ zookeeperVersion }}"
         bookkeeperVersion: "{{ bookkeeperVersion }}"
-        # prometheusVersion: "{{ prometheusVersion }}"
+        prometheusVersion: "{{ prometheusVersion }}"
         pravegaContainersPerSegmentStore: "{{ pravegaContainersPerSegmentStore }}"
         zookeeperServers: "{{ groups['bookkeeper'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '^(.*)$', '\\1:2181') | join(',') }}"
         controllerUrl: "tcp://{{ hostvars[groups['bookkeeper'][0]].private_ip }}:9090"
         private_ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
         segmentStoreCount: "{{ groups['bookkeeper'] | length }}"
-        # influxDBURI: "http://{{ hostvars[groups['metrics'][0]].private_ip }}:8086"
+        influxDBURI: "http://{{ hostvars[groups['metrics'][0]].private_ip }}:8086"
     - set_fact:
         # Change below to use a published release of Pravega or a local build.
         pravegaSrc: "https://github.com/pravega/pravega/releases/download/v{{ pravegaVersion }}/pravega-{{ pravegaVersion }}.tgz"
@@ -109,49 +109,72 @@
         value: 64000
 
 - name: Docker installation
-  hosts: ["bookkeeper"]
+  hosts: ["bookkeeper", "metrics"]
   tags: ["metrics"]
   connection: ssh
   become: true
   tasks:
-    - name: Add Extras Repo
-      shell: yum-config-manager --enable rhui-REGION-rhel-server-extras
-      when:
-        - ansible_facts['distribution'] == 'RedHat'
-        - ansible_facts['distribution_major_version'] | int <= 7
-    - name: Docker repo
-      yum_repository:
-        name: docker
-        description: repo for docker
-        baseurl: "https://download.docker.com/linux/centos/{{ ansible_facts['distribution_major_version'] }}/x86_64/stable/"
-        gpgcheck: no
-      when: ansible_facts['distribution'] == 'RedHat'
-    - name: Create Docker repo dir
-      file:
-        path: "/etc/yum.repos.d/"
-        state: directory
-    - name: Add Docker Centos extras
-      copy:
-        dest: /etc/yum.repos.d/docker-ce.repo
-        content: |
-          [centos-extras]
-          name=Centos extras - $basearch
-          baseurl=http://mirror.centos.org/centos/7/extras/x86_64
-          enabled=1
-          gpgcheck=1
-          gpgkey=http://centos.org/keys/RPM-GPG-KEY-CentOS-7
-    - name: Installing docker
+    # - name: Add Extras Repo
+    #   shell: yum-config-manager --enable rhui-REGION-rhel-server-extras
+    #   when:
+    #     - ansible_facts['distribution'] == 'RedHat'
+    #     - ansible_facts['distribution_major_version'] | int <= 7
+    # - name: Docker repo
+    #   yum_repository:
+    #     name: docker
+    #     description: repo for docker
+    #     baseurl: "https://download.docker.com/linux/centos/{{ ansible_facts['distribution_major_version'] }}/x86_64/stable/"
+    #     gpgcheck: no
+    #   when: ansible_facts['distribution'] == 'RedHat'
+    # - name: Create Docker repo dir
+    #   file:
+    #     path: "/etc/yum.repos.d/"
+    #     state: directory
+    # - name: Add Docker Centos extras
+    #   copy:
+    #     dest: /etc/yum.repos.d/docker-ce.repo
+    #     content: |
+    #       [centos-extras]
+    #       name=Centos extras - $basearch
+    #       baseurl=http://mirror.centos.org/centos/7/extras/x86_64
+    #       enabled=1
+    #       gpgcheck=1
+    #       gpgkey=http://centos.org/keys/RPM-GPG-KEY-CentOS-7
+    # - name: Installing docker
+    #   yum:
+    #     state: latest
+    #     pkg: ['slirp4netns', 'fuse-overlayfs', 'container-selinux', 'docker']
+    # - name: Start docker
+    #   service:
+    #     state: started
+    #     name: docker
+    #     enabled: yes
+    - name: Install yum-utils
       yum:
-        state: latest
-        pkg: ['slirp4netns', 'fuse-overlayfs', 'container-selinux', 'docker']
-    - name: Start docker
+        name: yum-utils
+        state: present
+
+    - name: Add Docker repo
+      command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+    - name: Install Docker and related packages
+      yum:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: Start and enable Docker service
       service:
-        state: started
         name: docker
+        state: started
         enabled: yes
 
 # - name: Prometheus installation
-#   hosts: ["metrics"]
+#   hosts: ["bookkeeper"]
 #   tags: ["prometheus"]
 #   connection: ssh
 #   become: true
@@ -179,35 +202,35 @@
 #         state: restarted
 #         enabled: yes
 
-# - name: InfluxDB installation
-#   hosts: ["metrics"]
-#   tags: ["influxdb"]
-#   connection: ssh
-#   become: true
-#   tasks:
-#     - template:
-#         src: "templates/influxdb.service"
-#         dest: "/etc/systemd/system/influxdb.service"
-#     - systemd:
-#         name: "influxdb"
-#         daemon_reload: yes
-#         state: restarted
-#         enabled: yes
+- name: InfluxDB installation
+  hosts: ["metrics"]
+  tags: ["influxdb"]
+  connection: ssh
+  become: true
+  tasks:
+    - template:
+        src: "templates/influxdb.service"
+        dest: "/etc/systemd/system/influxdb.service"
+    - systemd:
+        name: "influxdb"
+        daemon_reload: yes
+        state: restarted
+        enabled: yes
 
-# - name: Pravega Dashboard installation
-#   hosts: ["metrics"]
-#   tags: ["dashboard"]
-#   connection: ssh
-#   become: true
-#   tasks:
-#     - template:
-#         src: "templates/pravega-dashboard.service"
-#         dest: "/etc/systemd/system/pravega-dashboard.service"
-#     - systemd:
-#         name: "pravega-dashboard"
-#         daemon_reload: yes
-#         state: restarted
-#         enabled: yes
+- name: Pravega Dashboard installation
+  hosts: ["metrics"]
+  tags: ["dashboard"]
+  connection: ssh
+  become: true
+  tasks:
+    - template:
+        src: "templates/pravega-dashboard.service"
+        dest: "/etc/systemd/system/pravega-dashboard.service"
+    - systemd:
+        name: "pravega-dashboard"
+        daemon_reload: yes
+        state: restarted
+        enabled: yes
 
 # - name: Prometheus Node Exporter
 #   hosts: ["bookkeeper", "metrics"]

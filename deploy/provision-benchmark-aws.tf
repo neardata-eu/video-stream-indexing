@@ -245,9 +245,10 @@ resource "aws_instance" "client" {
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
   count                  = "${var.num_instances["client"]}"
+  iam_instance_profile   = aws_iam_instance_profile.s3_access.name
 
   root_block_device {
-    volume_size = 100  
+    volume_size = 175  
     volume_type = "gp2"
     delete_on_termination = true
   }
@@ -277,7 +278,6 @@ resource "aws_instance" "gpu" {
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
   vpc_security_group_ids = ["${aws_security_group.benchmark_security_group.id}"]
   count                  = "${var.num_instances["gpu"]}"
-  iam_instance_profile   = aws_iam_instance_profile.s3_access.name
 
   root_block_device {
     volume_size = 100  

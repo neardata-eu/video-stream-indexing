@@ -8,7 +8,7 @@ ami_gpu           = "ami-078d2afa1e02a4aa6" // Ubuntu 20.04 with NVIDIA drivers
 
 instance_types = {
   "bookkeeper" = "i3en.2xlarge"
-  "client"     = "m5.large" 
+  "client"     = "c5.4xlarge" //"m5.large" 
   "milvus"     = "m5.2xlarge"
   "gpu"        = "p3.2xlarge"
 
@@ -23,9 +23,9 @@ num_instances = {
   "client"     = 1
   "gpu"        = 1
   "milvus"     = 1
+  "metrics"    = 1
 
 # Not currently used
   "controller" = 0
   "zookeeper"  = 0
-  "metrics"    = 0
 }
