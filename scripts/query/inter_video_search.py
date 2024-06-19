@@ -26,6 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description='Milvus Query Demo')
     parser.add_argument('--image_path', default='/project/benchmarks/experiment3/cholec_frame_ref.png')
     parser.add_argument('--global_k', default=5)
+    parser.add_argument('--global_accuracy', default=0.0)
     parser.add_argument('--log_path', default=LOG_PATH)
     parser.add_argument('--result_path', default=RESULT_PATH)
     args = parser.parse_args()
@@ -55,7 +56,7 @@ def main():
     latency_dict["inference_ms"] = (inference_time - start)*1000
 
     ## Search global index
-    candidates = search_global("global", embeds.detach().numpy(), ["collection"], int(args.global_k))
+    candidates = search_global("global", embeds.detach().numpy(), ["collection"], int(args.global_k), float(args.global_accuracy))
     global_search = time.time()
     latency_dict["search_global_ms"] = (global_search - inference_time)*1000
     

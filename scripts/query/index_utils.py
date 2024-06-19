@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils import generate_fragments
 
 
-def search_global(collection_name, embedding, fields, k):
+def search_global(collection_name, embedding, fields, k, accuracy):
     """Search the global collection for candidate streams"""
     collection = Collection(collection_name)
     collection.load()
@@ -25,7 +25,8 @@ def search_global(collection_name, embedding, fields, k):
     videos = []
     for hits in result:
         for hit in hits:
-            videos.append((hit.collection, hit.distance))
+            if hit.distance >= accuracy:
+                videos.append((hit.collection, hit.distance))
             
     # Get unique streams
     highest_values = defaultdict(lambda: float('-inf')) 
