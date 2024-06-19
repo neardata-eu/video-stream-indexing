@@ -37,6 +37,8 @@ def main():
     parser.add_argument('--accuracy', default=0.9)
     parser.add_argument('--log_path', default=LOG_PATH)
     parser.add_argument('--result_path', default=RESULT_PATH)
+    parser.add_argument('--parallelism_candidates', default=5)
+    parser.add_argument('--parallelism_exports', default=5)
     args = parser.parse_args()
     
     log_path = args.log_path
@@ -79,7 +81,7 @@ def main():
     latency_dict["frame_search_retrieve"] = []
     gb_retrieved_total = 0
     output_fields=["offset", "pk"]
-    with ThreadPoolExecutor(max_workers=len(candidates)) as executor:
+    with ThreadPoolExecutor(max_workers=int(args.parallelism_candidates)) as executor:
         search_partial = partial(
             search, 
             milvus_client=client, 
@@ -88,7 +90,8 @@ def main():
             local_k=int(args.local_k),
             fragment_offset=int(args.fragment_offset), 
             accuracy=float(args.accuracy), 
-            result_path=result_path
+            result_path=result_path,
+            parallelism=int(args.parallelism_exports)
         )
         futures = {executor.submit(search_partial, collection_name=collection_name): collection_name for collection_name in candidates}
 

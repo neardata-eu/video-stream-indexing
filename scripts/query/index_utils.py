@@ -46,7 +46,7 @@ def process_offset(idx, off_start, off_end, collection_name, result_path, env):
     return filename, gb_retrieved
 
 
-def search(milvus_client, collection_name, embedding, fields, local_k, fragment_offset, accuracy, result_path):
+def search(milvus_client, collection_name, embedding, fields, local_k, fragment_offset, accuracy, result_path, parallelism):
     """Search a collection for similar segments and get those fragments from Pravega"""
     collection = Collection(collection_name)
     collection.load()
@@ -83,7 +83,7 @@ def search(milvus_client, collection_name, embedding, fields, local_k, fragment_
     total_gb_retrieved = 0
     files = []
     files_and_gbs = []
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=parallelism) as executor:
         futures = [
             executor.submit(process_offset, idx, off_start, off_end, collection_name, result_path, env)
             for idx, (off_start, off_end) in enumerate(offsets)
