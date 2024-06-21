@@ -182,7 +182,7 @@ def init_global_collection():
         index = {
             "index_type": "IVF_FLAT",
             "metric_type": "COSINE",
-            "params": {"nlist": 64},
+            "params": {"nlist": 1024},
         }
         collection.create_index("embeddings", index)
     else:   # Connect to existing collection
