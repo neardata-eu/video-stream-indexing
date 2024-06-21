@@ -156,7 +156,7 @@ def init_collection(collection_name):
             FieldSchema(name="offset", dtype=DataType.VARCHAR, max_length=100),
         ]
         schema = CollectionSchema(fields, "Video Stream")
-        collection = Collection(collection_name, schema, consistency_level="Strong")
+        collection = Collection(collection_name, schema, consistency_level="Bounded")
         
         index = {
             "index_type": "IVF_FLAT",
@@ -177,7 +177,7 @@ def init_global_collection():
             FieldSchema(name="collection", dtype=DataType.VARCHAR, max_length=100),
         ]
         schema = CollectionSchema(fields, "Global Index")
-        collection = Collection("global", schema, consistency_level="Strong")
+        collection = Collection("global", schema, consistency_level="Bounded")
         
         index = {
             "index_type": "IVF_FLAT",
