@@ -61,6 +61,9 @@ def main():
     ## Initialize embedding model
     print("Initializing model")
     model, device = get_model()
+    for _ in range(5):
+        syntethic_img = np.random.rand(540, 940, 3).astype(np.float32)
+        _ = inference(model, syntethic_img, device) # Warmup
     start = time.time()
     embeds = inference(model, np.array(img), device)  # Get embeddings
     inference_time = time.time()
@@ -114,9 +117,12 @@ def main():
         "global_k": args.global_k,
         "local_k": args.local_k,
         "fragment_offset": args.fragment_offset,
+        "global_accuracy": args.global_accuracy,
         "accuracy": args.accuracy,
         "log_path": log_path,
         "result_path": result_path,
+        "parallelism_candidates": args.parallelism_candidates,
+        "parallelism_exports": args.parallelism_exports,
     }
     latency_dict["config"] = config
     
