@@ -60,7 +60,7 @@ def main():
     latency_dict["inference_ms"] = (inference_time - start)*1000
 
     ## Search global index
-    candidates = search_global("global", embeds.detach().numpy(), ["collection"], int(args.global_k), float(args.global_accuracy))
+    candidates, search_times = search_global("global", embeds.detach().numpy(), ["collection"], int(args.global_k), float(args.global_accuracy))
     global_search = time.time()
     latency_dict["search_global_ms"] = (global_search - inference_time)*1000
     
@@ -74,6 +74,7 @@ def main():
         "global_accuracy": args.global_accuracy,
         "log_path": log_path,
         "result_path": result_path,
+        "search_times": search_times,
     }
     latency_dict["config"] = config
     

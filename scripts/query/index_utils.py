@@ -14,19 +14,29 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from utils import generate_fragments
 
+import time
+
 
 def search_global(collection_name, embedding, fields, k, accuracy):
     """Search the global collection for candidate streams"""
+    start = time.time()
     collection = Collection(collection_name)
+    collection_con = time.time()
     collection.load()
-    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k*100, output_fields=fields)
+    col_load = time.time()
+    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k*100, output_fields=fields, _async=False)
+    search_time = time.time()
     
     # Filter results
     videos = []
+    counter = 0
     for hits in result:
         for hit in hits:
+            counter = counter+1
             if hit.distance >= accuracy:
                 videos.append((hit.collection, hit.distance))
+    print(f"Total hits: {counter}")    
+    filter1 = time.time()
             
     # Get unique streams
     highest_values = defaultdict(lambda: float('-inf')) 
@@ -34,7 +44,23 @@ def search_global(collection_name, embedding, fields, k, accuracy):
         highest_values[key] = max(highest_values[key], value)
     sorted_data = sorted(highest_values.items(), key=lambda item: item[1], reverse=True)
     
-    return [item[0] for item in sorted_data[:k]]
+    filter2 = time.time()
+    
+    print(f"Collection: {collection_con - start}")
+    print(f"Load: {col_load - collection_con}")
+    print(f"Search: {search_time - col_load}")
+    print(f"Filter1: {filter1 - search_time}")
+    print(f"Filter2: {filter2 - filter1}")
+    
+    search_times = {
+        "collection": collection_con - start,
+        "load": col_load - collection_con,
+        "search": search_time - col_load,
+        "filter1": filter1 - search_time,
+        "filter2": filter2 - filter1
+    }
+    
+    return [item[0] for item in sorted_data[:k]], search_times
 
 
 def process_offset(idx, off_start, off_end, collection_name, result_path, env):
