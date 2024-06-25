@@ -57,12 +57,13 @@ def main():
     img = Image.open(args.image_path)
     if img.mode == 'RGBA':
         img = img.convert('RGB')
+    img.resize((940, 560))
     
     ## Initialize embedding model
     print("Initializing model")
     model, device = get_model()
     for _ in range(5):
-        syntethic_img = np.random.rand(540, 940, 3).astype(np.float32)
+        syntethic_img = np.random.rand(560, 940, 3).astype(np.float32)
         _ = inference(model, syntethic_img, device) # Warmup
     start = time.time()
     embeds = inference(model, np.array(img), device)  # Get embeddings
