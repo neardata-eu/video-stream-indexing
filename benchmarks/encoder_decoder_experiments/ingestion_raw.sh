@@ -33,6 +33,6 @@ filesrc location="${FILESRC_PATH}" \
 ! decodebin \
 ! videoconvert \
 ! videoscale \
-! video/x-raw,format=RGB,width=960,height=640 \
+! video/x-raw,format=RGB,width=960,height=560 \
 ! timestampcvt input-timestamp-mode=start-at-current-time \
 ! pravegasink stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER} allow-create-scope=true seal=true sync=false timestamp-mode=tai buffer-size=1024

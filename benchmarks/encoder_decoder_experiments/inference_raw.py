@@ -223,7 +223,7 @@ def main():
 
     pipeline_description = (
         'pravegasrc name=src ! '
-        'video/x-raw,format=RGB,width=960,height=640 ! '
+        'video/x-raw,format=RGB,width=960,height=560 ! '
         'fakesink name=sink'
     )
     logging.info('Creating pipeline: ' +  pipeline_description)
