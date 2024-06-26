@@ -24,7 +24,7 @@ def search_global(collection_name, embedding, fields, k, accuracy):
     collection_con = time.time()
     collection.load()
     col_load = time.time()
-    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k*100, output_fields=fields, _async=False)
+    result = collection.search(embedding, "embeddings", {"metric_type": "COSINE"}, limit=k*20, output_fields=fields)
     search_time = time.time()
     
     # Filter results
