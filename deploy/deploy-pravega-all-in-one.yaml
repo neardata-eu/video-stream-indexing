@@ -62,14 +62,14 @@
       shell: "rm -rf /opt/pravega /opt/zookeeper /opt/bookkeeper /opt/benchmark /mnt/journal/* /mnt/storage/*"
       args:
         warn: no
-    #- name: Delete files on tier 2
-          # shell: "rm -rf /mnt/tier2/*"
-          # when: groups['bookkeeper'][0] == inventory_hostname
-          # args:
-          #warn: no
-          #- name: Unmount tier 2
-          #shell: "umount /mnt/tier2"
-          #ignore_errors: yes
+    - name: Delete files on tier 2
+      shell: "rm -rf /mnt/tier2/*"
+      when: groups['bookkeeper'][0] == inventory_hostname
+      args:
+        warn: no
+    - name: Unmount tier 2
+      shell: "umount /mnt/tier2"
+      ignore_errors: yes
 
 - name: Common installation
   hosts: ["bookkeeper"]
@@ -418,13 +418,13 @@
   connection: ssh
   become: true
   tasks:
-    #- name: Mount EFS volume for Pravega tier 2 storage
-    #  mount:
-    #    path: "/mnt/tier2"
-    #    src: "{{ groups['tier2'][0] }}:/"
-    #    fstype: nfs4
-    #    opts: nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport
-    #    state: mounted
+    - name: Mount EFS volume for Pravega tier 2 storage
+      mount:
+        path: "/mnt/tier2"
+        src: "{{ groups['tier2'][0] }}:/"
+        fstype: nfs4
+        opts: nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport
+        state: mounted
     - template:
         src: "templates/pravega-segmentstore.service"
         dest: "/etc/systemd/system/pravega-segmentstore.service"
