@@ -71,7 +71,7 @@ def main():
     latency_dict["inference_ms"] = (inference_time - start)*1000
 
     ## Search global index
-    candidates = search_global("global", embeds.detach().numpy(), ["collection"], int(args.global_k), float(args.global_accuracy))
+    candidates, global_search_times = search_global("global", embeds.detach().numpy(), ["collection"], int(args.global_k), float(args.global_accuracy))
     global_search = time.time()
     latency_dict["search_global_ms"] = (global_search - inference_time)*1000
     
@@ -85,6 +85,7 @@ def main():
     latency_dict["frame_search_retrieve"] = []
     gb_retrieved_total = 0
     output_fields=["offset", "pk"]
+    start_intra_search = time.time()
     with ThreadPoolExecutor(max_workers=int(args.parallelism_candidates)) as executor:
         search_partial = partial(
             search, 
@@ -108,11 +109,12 @@ def main():
                 latency_dict["frame_search_retrieve"].append(log)
             except Exception as e:
                 print(f"Error processing collection {collection_name}: {e}")
-    
+    end_intra_search = time.time()
     ## Log
+    latency_dict["intra_search_ms"] = (end_intra_search - start_intra_search)*1000
     latency_dict["frame_count"] = process_files(fragments, result_path)
     latency_dict["total_gb_retrieved"] = gb_retrieved_total
-    
+    latency_dict["search_global_times"] = global_search_times
     config = {
         "image_path": args.image_path,
         "global_k": args.global_k,
