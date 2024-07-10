@@ -207,10 +207,6 @@ def main():
         latency_log = open(f"{log_path}/inference_log_{timestamp}.log", "a")
         latency_log.write("frame number,e2e latency(ms),model inference(ms),milvus transfer(ms),pts timestamp, initial timestamp, embedding timestamp, milvus timestamp\n")
 
-    # Set GStreamer log level.
-    # if not 'GST_DEBUG' in os.environ:
-    #     os.environ['GST_DEBUG'] = 'pravegasrc:DEBUG'
-
     # Standard GStreamer initialization.
     Gst.init(None)
     logging.info(Gst.version_string())
@@ -236,6 +232,7 @@ def main():
     # Initialize the model
     model, device = get_model()
     
+    # Connect to Milvus and initialize collections
     connections.connect(MILVUS_NAMESPACE, host=MILVUS_HOST, port=MILVUS_PORT)
     milvus_collection = init_collection(args.stream)
     milvus_global_collection = init_global_collection()
@@ -264,6 +261,7 @@ def main():
     
     pipeline_finish = time.time()
     
+    # Logs and cleanup
     if (DO_LATENCY_LOG):
         latency_log.close()
     

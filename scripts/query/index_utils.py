@@ -11,10 +11,7 @@ import subprocess
 import time
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from utils import generate_fragments
-
-import time
 
 
 def search_global(collection_name, embedding, fields, k, accuracy, f):
@@ -46,6 +43,7 @@ def search_global(collection_name, embedding, fields, k, accuracy, f):
     
     filter2 = time.time()
     
+    # Print query times
     print(f"Collection: {collection_con - start}")
     print(f"Load: {col_load - collection_con}")
     print(f"Search: {search_time - col_load}")
