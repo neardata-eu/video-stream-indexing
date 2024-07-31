@@ -63,14 +63,8 @@
   tasks:
     - name: Copy scripts folder
       copy:
-        src: ../scripts/
-        dest: /home/ubuntu/video-stream-indexing/scripts/
-        directory_mode: 0755
-        owner: ubuntu
-    - name: Copy policies folder
-      copy:
-        src: ../policies/
-        dest: /home/ubuntu/video-stream-indexing/policies/
+        src: ../streamsense/
+        dest: /home/ubuntu/video-stream-indexing/streamsense/
         directory_mode: 0755
         owner: ubuntu
     - name: Copy benchmarks folder
@@ -127,6 +121,6 @@
 
     - template:
         src: "templates/constants.py"
-        dest: "/home/ubuntu/video-stream-indexing/policies/constants.py"
+        dest: "/home/ubuntu/video-stream-indexing/streamsense/policies/constants.py"
 
 

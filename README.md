@@ -1,5 +1,5 @@
 # StreamSense
-Integration of Pravega and Milvus for NCT computer-assisted surgery use-case.
+A policy-driven semantic video search solution that exploits tiered storage in streaming systems.
 
 # Setup
 
@@ -8,100 +8,78 @@ While everything can be run on the same machine, we recommend the following 4 ma
 * 1 VM for Pravega.
 * 1 VM for Milvus.
 * 1 VM with GPU to perform the inference.
-* 1 VM to read the surgery video. 
+* 1 VM for the client to generate the video stream. 
 
-## Pravega Installation
+## Installation
 
-This shows how to start the local Docker Compose version of Pravega. For other types of deployments, refer to [here](https://github.com/pravega/pravega/blob/master/documentation/src/docs/deployment/deployment.md).
+In order to deploy the environment to run this project, plase refer to ['/deploy'](https://github.com/neardata-eu/video-stream-indexing/tree/main/deploy/README.md).
 
-Please install docker & docker-compose as prerequisite and run the following commands on Linux host to start/stop pravega instance. 
-
-Start pravega:
-```
-PRAVEGA_LTS_PATH=/opt/docker/pravega_lts ./pravega-docker/up.sh
-```
-
-Stop pravega:
-```
-./pravega-docker/down.sh
-```
-
-## Milvus Installation
-
-Install Milvus
-```
-wget https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh
-```
-
-Start Milvus
-```
-bash standalone_embed.sh start
-```
-
-Stop Milvus
-```
-bash standalone_embed.sh stop
-```
-
-Delete Milvus
-```
-bash standalone_embed.sh delete
-```
-
-To start the ATTU GUI. This is a browser interface to easily manage the Milvus collections and indexes (optional):
-```
-docker run -p 8000:3000 -e MILVUS_URL=172.17.0.1:19530 zilliz/attu:v2.3.10
-```
+Alternatively, to deploy it in a local environment, plase refer to ['/deploy/local'](https://github.com/neardata-eu/video-stream-indexing/tree/main/deploy/local/README.md).
 
 # Instructions
-### 1. Start docker container
-Setup docker container. This container contains all the required dependencies to run the entire pipeline. It is recommended to add gpu to the Inference container via the ```--gpus all``` flag.
+
+### 0. Prepare environment
+ - Prepare the setup as described previously. You can either use the full deployment or the local deployment.
+ - Make sure to assign the correct IPs in `streamsense/policies/constants.py`.
+
+### 1. Prepare Docker container
+ - We recommend running all the scripts with the following Docker image. 
+ - This container contains all the required dependencies to run all of the steps. 
+ - It is recommended to add gpu to the Inference/Indexing container via the ```--gpus all``` flag.
+ - The image can also be built or modified in the `/docker` folder.
 
 ```
-xhost +
 docker run -it -v /{path-to-repo}/video-stream-indexing/:/project --net=host --env="DISPLAY" --volume="$HOME/.Xauthority:/root/.Xauthority:rw" arnaugabriel/video-indexing:2.0 bash
 ```
 
 ### 2. Video Ingestion
-Perform a simulation o a real surgery by reading a local mp4 file and sending it as a stream to Pravega. This process should run on the VM that reads the surgery video.
+ - This step performs a simulation of a real surgery by reading a local mp4 file and sending it as a stream to Pravega. 
+ - This process should run on the client VM (low hardware requirements).
+ - Navigate to `/project/streamsense/ingestion` and then run the following script:
 ```
-cd /project/scripts/ingestion
 bash ingestion.sh /project/videos/<video_name>.mp4 <stream_name> <fps>
 ```
 
-Display pravega stream to screen (optional):
+ - Optionally, once the video is written we can read and visualize the video stream.
+ - Navigate to `/project/streamsense/ingestion` and then run the following script:
 ```
-cd /project/scripts/ingestion
 bash read.sh <stream_name>
 ```
 
 ### 3. Inference and Indexing
-Read the previously created stream, generate the embeddings from the key frames and send them to Milvus. This process should run on the VM with GPU support.
+
+ - This step reads the stream from the previous step, generates the embeddings from the key video frames and sends them to Milvus. 
+ - This process can be run at the same time as the previous one to simulate a live surgery or afterwards for batch indexing. 
+ - This process should run on the VM with GPU support.
+ - Navigate to `/project/streamsense/indexing` and then run the following script:
 
 ```
-cd /project/scripts/inference
 GST_PLUGIN_PATH=/gstreamer-pravega/target/debug:${GST_PLUGIN_PATH} python3 inference.py --stream <stream_name>
 ```
 
 ### 4. Perform a query to the system
 
-Perform a query to our system by giving a sample image. This process can run on any VM, but it is recommended to run on the node with GPU support.
+ - This steps showcases the query capabilities of our system. We recommend adding multiple videos from different surgerys in order to appreciate the results.
+ - This process can run on any VM, but it is recommended to run on the node with GPU support.
+ - The following example performs an inter-video and intra-video query to our system.
+ - Navigate to `/project/streamsense/query` and then run the following script:
 ```
-cd /project/scripts/query
 python3 milvus_demo.py
 ```
 
-To run the PyTorch/DataLoader example:
+ - The following example showcases the use withing a DataLoader class in order to generate a DataSet to train a PyTorch model.
+ - Navigate to `/project/streamsense/query` and then run the following script:
 ```
-cd /project/scripts/query
 python3 pytorch_example.py
 ```
 
-Read video segment (to read the generated video segments):
+ - The video fragments generated can be visualized with the following command:
 ```
-vlc <stream_name>.h264 --demux h264
+vlc <fragment_name>.h264 --demux h264
 ```
 
 # Video Demo
+
+The following demo showcases all of the pipeline steps.
 
 [Video Demo](https://github.com/ArnauGabrielAtienza/video-stream-indexing/blob/main/media/demo.mp4)

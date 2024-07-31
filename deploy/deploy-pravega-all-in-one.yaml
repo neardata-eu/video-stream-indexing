@@ -77,22 +77,22 @@
   connection: ssh
   become: true
   tasks:
-    - name: Set performance profile
-      command: tuned-adm profile latency-performance
-    - name: Install RPM packages
-      yum: pkg={{ item }} state=latest
-      with_items:
-        - chrony
-        - java-11
-        - nano
-        - nc
-        - nfs-utils
-        - screen
-        - sysstat
-        - unzip
-        - vim
-        - wget
-        - zip
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+    - name: Install apt packages
+      apt: 
+        name:
+          - chrony
+          - openjdk-11-jdk
+          - nano
+          - netcat
+          - nfs-common
+          - sysstat
+          - unzip
+          - vim
+          - wget
+          - zip
     - name: Change locale to en_US.utf-8
       shell: |
         echo 'LANG=en_US.utf-8
@@ -112,66 +112,36 @@
   hosts: ["bookkeeper", "metrics"]
   tags: ["metrics"]
   connection: ssh
-  become: true
+  remote_user: ubuntu
+  become: yes
   tasks:
-    # - name: Add Extras Repo
-    #   shell: yum-config-manager --enable rhui-REGION-rhel-server-extras
-    #   when:
-    #     - ansible_facts['distribution'] == 'RedHat'
-    #     - ansible_facts['distribution_major_version'] | int <= 7
-    # - name: Docker repo
-    #   yum_repository:
-    #     name: docker
-    #     description: repo for docker
-    #     baseurl: "https://download.docker.com/linux/centos/{{ ansible_facts['distribution_major_version'] }}/x86_64/stable/"
-    #     gpgcheck: no
-    #   when: ansible_facts['distribution'] == 'RedHat'
-    # - name: Create Docker repo dir
-    #   file:
-    #     path: "/etc/yum.repos.d/"
-    #     state: directory
-    # - name: Add Docker Centos extras
-    #   copy:
-    #     dest: /etc/yum.repos.d/docker-ce.repo
-    #     content: |
-    #       [centos-extras]
-    #       name=Centos extras - $basearch
-    #       baseurl=http://mirror.centos.org/centos/7/extras/x86_64
-    #       enabled=1
-    #       gpgcheck=1
-    #       gpgkey=http://centos.org/keys/RPM-GPG-KEY-CentOS-7
-    # - name: Installing docker
-    #   yum:
-    #     state: latest
-    #     pkg: ['slirp4netns', 'fuse-overlayfs', 'container-selinux', 'docker']
-    # - name: Start docker
-    #   service:
-    #     state: started
-    #     name: docker
-    #     enabled: yes
-    - name: Install yum-utils
-      yum:
-        name: yum-utils
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+    - name: Install required packages
+      apt:
+        name: ['ca-certificates', 'curl']
         state: present
-
-    - name: Add Docker repo
-      command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-
+    - name: Create directory for Docker GPG key
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+    - name: Download Docker's official GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+    - name: Add Docker repository to Apt sources
+      shell: |
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+        apt-get update
     - name: Install Docker and related packages
-      yum:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-buildx-plugin
-          - docker-compose-plugin
+      apt:
+        name: ['docker-ce', 'docker-ce-cli', 'containerd.io', 'docker-buildx-plugin', 'docker-compose-plugin']
         state: present
-
-    - name: Start and enable Docker service
-      service:
-        name: docker
-        state: started
-        enabled: yes
+    - name: Test Docker
+      command: docker run hello-world
 
 # - name: Prometheus installation
 #   hosts: ["bookkeeper"]

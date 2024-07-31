@@ -5,11 +5,6 @@ This readme shows the process to create and deploy a Pravega cluster, with the M
 ### AWS credentials
 AWS credentials are required to create the cluster. The credentials must be stored in the file `~/.aws/credentials`.
 
-### Accept CentOS 7 AMI in AWS Marketplace
-Go to the following [link](https://aws.amazon.com/marketplace/server/procurement?productId=d9a3032a-921c-4c6d-b150-bde168105e42
-) and accept the CentOS 7 AMI in AWS Marketplace. The previous link asumes that you use the US East (N. Virginia) region. If you use a different region, you need to search for the CentOS 7 AMI in the AWS Marketplace and accept it.
-
-This step is required because the CentOS 7 AMI is used by the terraform script to create the Pravega cluster.
 
 ### SSH key
 You’ll need to create both a public and a private SSH key at `~/.ssh/benchmark_key` (private) and `~/.ssh/benchmark_key.pub` (public), respectively.
@@ -58,9 +53,8 @@ Once the cluster is created, we can deploy Pravega using Ansible.
 ``` bash
 # Fixes "terraform-inventory had an execution error: Error reading tfstate file: 0.12 format error"
 export TF_STATE=./
-# User is centos because we are using the centos AMI and not the RHEL one.
 ansible-playbook \
-  --user centos \
+  --user ubuntu \
   --inventory `which terraform-inventory` \
   deploy-pravega-all-in-one.yaml
 ```

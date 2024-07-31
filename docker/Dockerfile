@@ -52,4 +52,4 @@ RUN cargo build
 RUN apt-get clean
 
 # Set working directory
-WORKDIR /project/scripts
+WORKDIR /project

@@ -30,9 +30,7 @@ variable "region" {}
 
 variable "availability_zone" {}
 
-variable "ami_centos" {}
-
-variable "ami_client" {}
+variable "ami_ubuntu" {}
 
 variable "ami_gpu" {}
 
@@ -199,7 +197,7 @@ resource "aws_iam_instance_profile" "s3_access" {
 }
 
 resource "aws_instance" "zookeeper" {
-  ami                    = "${var.ami_centos}"
+  ami                    = "${var.ami_ubuntu}"
   instance_type          = "${var.instance_types["zookeeper"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -212,7 +210,7 @@ resource "aws_instance" "zookeeper" {
 }
 
 resource "aws_instance" "controller" {
-  ami                    = "${var.ami_centos}"
+  ami                    = "${var.ami_ubuntu}"
   instance_type          = "${var.instance_types["controller"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -225,7 +223,7 @@ resource "aws_instance" "controller" {
 }
 
 resource "aws_instance" "bookkeeper" {
-  ami                    = "${var.ami_centos}"
+  ami                    = "${var.ami_ubuntu}"
   instance_type          = "${var.instance_types["bookkeeper"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -239,7 +237,7 @@ resource "aws_instance" "bookkeeper" {
 
 
 resource "aws_instance" "client" {
-  ami                    = "${var.ami_client}"
+  ami                    = "${var.ami_ubuntu}"
   instance_type          = "${var.instance_types["client"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -259,7 +257,7 @@ resource "aws_instance" "client" {
 }
 
 resource "aws_instance" "metrics" {
-  ami                    = "${var.ami_centos}"
+  ami                    = "${var.ami_ubuntu}"
   instance_type          = "${var.instance_types["metrics"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
@@ -291,7 +289,7 @@ resource "aws_instance" "gpu" {
 }
 
 resource "aws_instance" "milvus" {
-  ami                    = "${var.ami_client}"
+  ami                    = "${var.ami_ubuntu}"
   instance_type          = "${var.instance_types["milvus"]}"
   key_name               = "${aws_key_pair.auth.id}"
   subnet_id              = "${aws_subnet.benchmark_subnet.id}"
