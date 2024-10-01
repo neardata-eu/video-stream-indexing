@@ -83,3 +83,5 @@ vlc <fragment_name>.h264 --demux h264
 The following demo showcases all of the pipeline steps.
 
 [Video Demo](https://github.com/ArnauGabrielAtienza/video-stream-indexing/blob/main/media/demo.mp4)
+
+[Surveillance Demo](/media/surveillance.mp4)
