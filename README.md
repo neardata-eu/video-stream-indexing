@@ -1,20 +1,44 @@
 # StreamSense
 A policy-driven semantic video search solution that exploits tiered storage in streaming systems.
 
-# Setup
+StreamSense has been presented at the 25th ACM/IFIP International Middleware Conference. The paper can be found [here](https://dl.acm.org/doi/10.1145/3700824.3701097).
 
-While everything can be run on the same machine, we recommend the following 4 machine setup:
+## Abstract
+Streaming systems are an increasingly appealing substrate for managing video data via the stream abstraction. However, if we consider a large stream collection, it can be hard for data scientists to discover and locate relevant videos, let alone specific video fragments. In this paper, we propose StreamSense: a policy-driven, semantic video search solution for streaming systems. StreamSense allows users to deploy AI models that generate embeddings from video frames via policies. Our system uses such embeddings for building a two-level index in a vector DB that efficiently handles inter/intra video queries. StreamSense abstracts users from vector DB interactions so they can perform semantic search using images as input and visualize the results. We built our prototype on top of a tiered streaming storage system (Pravega) and validated it on a health-related use case. We show that StreamSense allows data scientists to search for video fragments in real surgery datasets in < 30ms. StreamSense also reduces data ingestion related to AI training data loading in +80% compared to simple bulk loading video streams.
 
-* 1 VM for Pravega.
-* 1 VM for Milvus.
-* 1 VM with GPU to perform the inference.
-* 1 VM for the client to generate the video stream. 
+## StreamSense CLI (a.k.a. Indexer Controller)
+
+To launch the StreamSense CLI, run the following command:
+
+``` bash
+python3 streamsense/streamsense-cli.py
+```
+
+The CLI will prompt you and you can start entering commands:
+
+![CLI image](/media/cli.png)
+
+When generating embeddings, the CLI will automatically launch a pod on your previously configured Kubernetes cluster. In that pod, the video will be read from the Pravega stream, generating the two-level index and storing the embeddings in the Milvus database.
+
+When querying the system, the CLI will run the query and return the results.
+
+# Evaluation
+To reproduce the evaluation results, you need to run StreamSense manually. The CLI is designed to be user-friendly and may not collect/output all the evaluation metrics.
+
+## Setup
+
+The evaluation was performed on a AWS EC2 cluster of 4 nodes
+
+* 1 VM for Pravega (i3en.2xlarge).
+* 1 VM for Milvus (m5.2xlarge).
+* 1 VM with GPU to perform the inference (p3.2xlarge).
+* 1 VM for the client to generate the video stream (c5.4xlarge). 
 
 ## Installation
 
-In order to deploy the environment to run this project, plase refer to ['/deploy'](https://github.com/neardata-eu/video-stream-indexing/tree/main/deploy/README.md).
+In order to deploy the environment to run this project, plase refer to ['/deploy'](/deploy/README.md).
 
-Alternatively, to deploy it in a local environment, plase refer to ['/deploy/local'](https://github.com/neardata-eu/video-stream-indexing/tree/main/deploy/local/README.md).
+Notice that StreamSense can be deployed locally on a single machine to develop and test the system. To deploy it in a local environment, plase refer to ['/deploy/local'](/deploy/local/README.md).
 
 # Instructions
 
@@ -82,6 +106,6 @@ vlc <fragment_name>.h264 --demux h264
 
 The following demo showcases all of the pipeline steps.
 
-[Video Demo](https://github.com/ArnauGabrielAtienza/video-stream-indexing/blob/main/media/demo.mp4)
+![Video Demo](/media/demo.mp4)
 
-[Surveillance Demo](/media/surveillance.mp4)
+![Surveillance Demo](/media/surveillance.mp4)

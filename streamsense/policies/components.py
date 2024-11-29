@@ -5,13 +5,16 @@ import numpy as np
 import torch
 import cv2
 
-def get_model():
+def get_model(m="resnet50"):
     """Load the model and move it to the device"""
-    model = FeatureResNet()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    model.eval()
-    return model, device
+    if m == "resnet50":
+        model = FeatureResNet()
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
+        model.eval()
+        return model, device
+    else:
+        raise NotImplementedError("Model not implemented")
 
 def inference(model, image, device):
     """Extract features from an image"""
@@ -24,13 +27,13 @@ def inference(model, image, device):
     embedding = model(input_batch.to(device))
     return embedding.cpu()
 
-def do_sampling():
+def do_sampling(num_frames=30):
     """Determine the sampling method for the global index"""
     counter = 0
 
     def time_based_sampling():
         nonlocal counter
         counter += 1
-        return (counter-1) % 30 == 0
+        return (counter-1) % num_frames == 0
 
     return time_based_sampling

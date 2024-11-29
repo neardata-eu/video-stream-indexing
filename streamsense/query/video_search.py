@@ -28,7 +28,8 @@ def get_embedding(img):
 
 def inter_video_search(image=None, embedding=None,
                        global_k=5, global_accuracy=0.0, global_f=20,
-                       client=None, milvus_host=MILVUS_HOST, milvus_namespace=MILVUS_NAMESPACE, milvus_port=MILVUS_PORT):
+                       client=None, milvus_host=MILVUS_HOST, milvus_namespace=MILVUS_NAMESPACE, milvus_port=MILVUS_PORT, 
+                       model=None, device=None):
     
     ## Connect to Milvus
     if client==None:
@@ -36,7 +37,8 @@ def inter_video_search(image=None, embedding=None,
 
     if embedding==None:
         ## Initialize embedding model
-        model, device = get_model()
+        if model==None or device==None:
+            model, device = get_model()
         embedding = inference(model, np.array(image), device)  # Get embeddings
 
     ## Search global index
@@ -47,7 +49,8 @@ def inter_video_search(image=None, embedding=None,
 def intra_video_search(image=None, embedding=None, result_path='/project/results',
                        global_accuracy=0.0,
                        parallelism_candidates=5, local_k=100, fragment_offset=10, accuracy=0.9, parallelism_exports=5,
-                       client=None, milvus_host=MILVUS_HOST, milvus_namespace=MILVUS_NAMESPACE, milvus_port=MILVUS_PORT):
+                       client=None, milvus_host=MILVUS_HOST, milvus_namespace=MILVUS_NAMESPACE, milvus_port=MILVUS_PORT,
+                       model=None, device=None):
     
     ## Connect to milvus
     if client==None:
@@ -55,7 +58,8 @@ def intra_video_search(image=None, embedding=None, result_path='/project/results
         
     if embedding==None:
         ## Initialize embedding model
-        model, device = get_model()
+        if model==None or device==None:
+            model, device = get_model()
         embedding = inference(model, np.array(image), device)  # Get embeddings
     
     ## Search global index

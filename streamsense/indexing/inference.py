@@ -198,7 +198,11 @@ def main():
     parser.add_argument('--milvus_host', default=MILVUS_HOST)
     parser.add_argument('--milvus_port', default=MILVUS_PORT)
     parser.add_argument('--milvus_namespace', default=MILVUS_NAMESPACE)
+    parser.add_argument('--model', default='resnet50')
+    parser.add_argument('--num_frames', type=int, default=30)
+    
     args = parser.parse_args()
+    sampling_fn = do_sampling(args.num_frames)
 
     logging.basicConfig(level=args.log_level)
     logging.info('args=%s' % str(args))
@@ -233,7 +237,7 @@ def main():
     pravegasrc.set_property("allow-create-scope", True)
     
     # Initialize the model
-    model, device = get_model()
+    model, device = get_model(args.model)
     
     # Connect to Milvus and initialize collections
     connections.connect(args.milvus_namespace, host=args.milvus_host, port=args.milvus_port)
