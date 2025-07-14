@@ -86,17 +86,10 @@ GST_PLUGIN_PATH=/gstreamer-pravega/target/debug:${GST_PLUGIN_PATH} python3 infer
  - This steps showcases the query capabilities of our system. We recommend adding multiple videos from different surgerys in order to appreciate the results.
  - This process can run on any VM, but it is recommended to run on the node with GPU support.
  - The following example performs an inter-video and intra-video query to our system.
- - Navigate to `/project/streamsense/query` and then run the following script:
-```
-python3 milvus_demo.py
-```
+ - Navigate to `/project/streamsense/benchmarks/experiment4` and then run `inter_video_search.py` and `intra_video_search.py`.
 
- - The following example showcases the use withing a DataLoader class in order to generate a DataSet to train a PyTorch model.
- - Navigate to `/project/streamsense/query` and then run the following script:
-```
-python3 pytorch_example.py
-```
-
+ - The `/project/streamsense/pytorch_examples` folder contains examples showcasing the use within a DataLoader class in order to generate a DataSet to train a PyTorch model.
+   
  - The video fragments generated can be visualized with the following command:
 ```
 vlc <fragment_name>.h264 --demux h264
